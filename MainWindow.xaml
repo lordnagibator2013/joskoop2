@@ -5,10 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:lord13"
         mc:Ignorable="d"
-        Title="Реперская" Height="1000" Width="1400">
+        Title="Реперская" Height="1080" Width="1920">
     <Grid>
-        <Canvas>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="150"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        </Canvas>
+        <StackPanel Grid.Column="0" Background="LightGray">
+            <TextBlock Text="Инструменты" Margin="5"/>
+            <Button x:Name="BrushButton" Content="Кисть" Margin="5" Click="Brush"/>
+            <Button x:Name="EraserButton" Content="Ластик" Margin="5" Click="Eraser"/>
+            <TextBlock Text="Цвета" Margin="5, 10, 5, 5"/>
+        </StackPanel>
+
+        <Grid Grid.Column="1" Background="White">
+            <Image x:Name="DrawingSurface" 
+                MouseDown="Draw_down"
+                MouseMove="Draw_move"
+                MouseUp="Draw_up"/>
+        </Grid>
     </Grid>
 </Window>

@@ -13,21 +13,37 @@ namespace lord13;
 
 public partial class MainWindow : Window
 {
-    int count = 0;
-    string[] listbox = new string[50];
-
-    private void NeGotovo()
-    {
-        MessageBox.Show("не готово(");
-    }
-
+    bool isDraw = false;
     private void Error()
     {
         MessageBox.Show("ты дурачина");
     }
 
-    // public MainWindow()
-    // {
-    //     InitializeComponent();
-    // }
+    private void Brush(object sender, RoutedEventArgs e)
+    {
+
+    }
+
+    private void Eraser(object sender, RoutedEventArgs e)
+    {
+
+    }
+
+    private void Draw_down(object sender, MouseButtonEventArgs e)
+    {
+        isDraw = true;
+    }
+
+    private void Draw_move(object sender, RoutedEventArgs e)
+    {
+        if (isDraw == true)
+        {
+            isDraw = false;
+        }
+    }
+    
+    private void Draw_up(object sender, MouseButtonEventArgs e)
+    {
+        isDraw = false;
+    }
 }
