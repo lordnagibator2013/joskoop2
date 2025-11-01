@@ -14,8 +14,9 @@
 
         <StackPanel Grid.Column="0" Background="LightGray">
             <TextBlock Text="Инструменты" Margin="5"/>
-            <Button x:Name="BrushButton" Content="Кисть" Margin="5" Click="Brush"/>
-            <Button x:Name="EraserButton" Content="Ластик" Margin="5" Click="Eraser"/>
+            <Button x:Name="BrushB" Content="Кисть" Margin="5" Background="{Binding BrushColor}" Click="Brush"/>
+            <Button x:Name="EraserB" Content="Ластик" Margin="5" Background="{Binding BrushColor}" Click="Eraser"/>
+            <Button x:Name="Reset" Content="Очистить" Margin="5" Click="Clear"/>
             <TextBlock Text="Цвета" Margin="5, 10, 5, 5"/>
         </StackPanel>
 

@@ -14,6 +14,7 @@ namespace lord13;
 public partial class MainWindow : Window
 {
     bool isDraw = false;
+    bool brush = true;
     private void Error()
     {
         MessageBox.Show("ты дурачина");
@@ -21,12 +22,19 @@ public partial class MainWindow : Window
 
     private void Brush(object sender, RoutedEventArgs e)
     {
-
+        brush = true;
+        UpdateBC();
     }
 
     private void Eraser(object sender, RoutedEventArgs e)
     {
+        brush = false;
+        UpdateBC();
+    }
 
+    private void Clear(object sender, RoutedEventArgs e)
+    {
+        
     }
 
     private void Draw_down(object sender, MouseButtonEventArgs e)
@@ -41,9 +49,28 @@ public partial class MainWindow : Window
             isDraw = false;
         }
     }
-    
+
     private void Draw_up(object sender, MouseButtonEventArgs e)
     {
         isDraw = false;
+    }
+
+    public MainWindow()
+    {
+        InitializeComponent();
+    }
+    
+    private void UpdateBC()
+    {
+        if (brush)
+        {
+            BrushB.Background = Brushes.LightBlue;
+            EraserB.Background = Brushes.LightGray;
+        }
+        else
+        {
+            BrushB.Background = Brushes.LightGray;
+            EraserB.Background = Brushes.LightBlue;
+        }
     }
 }
