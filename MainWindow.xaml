@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:lord13"
         mc:Ignorable="d"
         Title="Реперская" Height="1080" Width="1920">
-    <Grid>
+    <Grid MouseUp="Draw_up">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="150"/>
             <ColumnDefinition Width="*"/>
@@ -17,16 +17,40 @@
             <Button x:Name="BrushB" Content="Кисть" Margin="5" Background="{Binding BrushColor}" Click="Brush"/>
             <Button x:Name="EraserB" Content="Ластик" Margin="5" Background="{Binding BrushColor}" Click="Eraser"/>
             <Button x:Name="Reset" Content="Очистить" Margin="5" Click="Clear"/>
+            <TextBlock Text="Ширина" Margin="5"/>
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBox x:Name="Thick"
+                    Width = "60"
+                    Margin="5"
+                    Text=""/>
+                <Button x:Name="ThickEnter" 
+                    Content="Изменить" 
+                    Margin="5" 
+                    Click="NewThick"/>
+            </StackPanel>
             <TextBlock Text="Фигуры" Margin="5, 10, 5, 5"/>
             <TextBlock Text="Цвета" Margin="5, 10, 5, 5"/>
+            <UniformGrid Rows="2" Columns="2">
+                <UniformGrid.Resources>
+                    <Style TargetType="Button">
+                        <EventSetter Event="Click" Handler="ChangeColor"/>
+                        <Setter Property="Height" Value="30"/>
+                        <Setter Property="Margin" Value="2"/>
+                    </Style>
+                </UniformGrid.Resources>
+                <Button Background="Black" Margin="5"/>
+                <Button Background="Red" Margin="5"/>
+                <Button Background="#324032" Margin="5"/>
+                <Button Background="Pink" Margin="5"/>
+            </UniformGrid>
         </StackPanel>
 
         <Grid Grid.Column="1" Background="White">
             <Canvas x:Name="Canvass" 
+                ClipToBounds="True"
                 Background="White"
                 MouseDown="Draw_down"
-                MouseMove="Draw_move"
-                MouseUp="Draw_up"/>
+                MouseMove="Draw_move"/>
         </Grid>
     </Grid>
 </Window>

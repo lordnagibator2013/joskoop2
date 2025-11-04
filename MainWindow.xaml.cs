@@ -14,7 +14,9 @@ namespace lord13;
 public partial class MainWindow : Window
 {
     bool isDraw = false;
-    bool brush = true;
+    bool brush = false;
+    bool eraser = false;
+    short thickness = 3;
     Color currentColor = Color.FromRgb(0, 0, 0);
     Point point1;
     private void Error()
@@ -22,23 +24,36 @@ public partial class MainWindow : Window
         MessageBox.Show("ты дурачина");
     }
 
+    private void NewThick(object sender, RoutedEventArgs e)
+    {
+        string strthick = Thick.Text;
+        if (uint.TryParse(strthick, out uint size))
+        {
+            if (size > 48) { thickness = 48; }
+            else { thickness = Convert.ToInt16(size); }
+        }
+        else{ Error(); }
+    }
+
     private void Brush(object sender, RoutedEventArgs e)
     {
         brush = true;
+        eraser = false;
         UpdateBC();
     }
 
     private void Eraser(object sender, RoutedEventArgs e)
     {
         brush = false;
+        eraser = true;
         UpdateBC();
     }
 
     private void Clear(object sender, RoutedEventArgs e)
     {
-
+        Canvass.Children.Clear();
     }
-    
+
     private void Draw(Point x1, Point x2, Color color)
     {
         SolidColorBrush brush = new SolidColorBrush(color);
@@ -49,14 +64,23 @@ public partial class MainWindow : Window
             X2 = x2.X,
             Y2 = x2.Y,
             Stroke = brush,
-            StrokeThickness = 3
+            StrokeThickness = thickness,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round
         };
         Canvass.Children.Add(line);
+    }
+    
+    private void ChangeColor(object sender, RoutedEventArgs e)
+    {
+        Button button = (Button)sender;
+        currentColor = ((SolidColorBrush)button.Background).Color;
     }
 
     private void Draw_down(object sender, MouseButtonEventArgs e)
     {
-        if(!brush){ return; }
+        if (!brush && !eraser){ return; }
         isDraw = true;
         point1 = e.GetPosition(Canvass);
     }
@@ -68,7 +92,8 @@ public partial class MainWindow : Window
             return;
         }
         Point point2 = e.GetPosition(Canvass);
-        Draw(point1, point2, currentColor);
+        if (brush) { Draw(point1, point2, currentColor); }
+        if (eraser) { Draw(point1, point2, Color.FromArgb(255, 255, 255, 255)); }
         point1 = point2;
     }
 
