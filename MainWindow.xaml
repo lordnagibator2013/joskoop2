@@ -14,9 +14,11 @@
 
         <StackPanel Grid.Column="0" Background="LightGray">
             <TextBlock Text="Инструменты" Margin="5"/>
-            <Button x:Name="BrushB" Content="Кисть" Margin="5" Background="{Binding BrushColor}" Click="Brush"/>
-            <Button x:Name="EraserB" Content="Ластик" Margin="5" Background="{Binding BrushColor}" Click="Eraser"/>
+            <Button x:Name="BrushB" Content="Кисть" Margin="5" Click="Brush"/>
+            <Button x:Name="EraserB" Content="Ластик" Margin="5" Click="Eraser"/>
+            <!--Background="{Binding BrushColor}"-->
             <Button x:Name="Reset" Content="Очистить" Margin="5" Click="Clear"/>
+
             <TextBlock Text="Ширина" Margin="5"/>
             <StackPanel Orientation="Horizontal" Margin="5">
                 <TextBox x:Name="Thick"
@@ -28,7 +30,14 @@
                     Margin="5" 
                     Click="NewThick"/>
             </StackPanel>
+
             <TextBlock Text="Фигуры" Margin="5, 10, 5, 5"/>
+            <UniformGrid Rows="1" Columns="3" Height="60">
+                <Button Content="/" FontSize="22" Margin="5" Click="Line"/>
+                <Button Content="⬭" FontSize="30" Margin="5" Click="Ellipse"/>
+                <Button Content="▭" FontSize="28" Margin="5" Click="Rect"/>
+            </UniformGrid>
+
             <TextBlock Text="Цвета" Margin="5, 10, 5, 5"/>
             <UniformGrid Rows="2" Columns="2">
                 <UniformGrid.Resources>

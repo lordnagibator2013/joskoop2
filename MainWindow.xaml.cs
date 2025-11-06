@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     Color currentColor = Color.FromRgb(0, 0, 0);
     Point point1;
     private bool[] tools = { false, false, false, false, false }; //brush 0, eraser 1, line 2, ellipse 3, rect 4
-    private void truthify(bool[] tools, byte j)
+    private void Truthify(bool[] tools, byte j)
     {
         for (int i = 0; i < tools.Length; i++)
         {
@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         string strthick = Thick.Text;
         if (uint.TryParse(strthick, out uint size))
         {
-            if (size > 48) { thickness = 48; }
+            if (size > 60) { thickness = 60; }
             else { thickness = Convert.ToInt16(size); }
         }
         else{ Error(); }
@@ -54,37 +54,37 @@ public partial class MainWindow : Window
 
     private void Brush(object sender, RoutedEventArgs e)
     {
-        truthify(tools, 0);
-        //UpdateBC();
+        Truthify(tools, 0);
+        UpdateBC();
     }
     private void Eraser(object sender, RoutedEventArgs e)
     {
-        truthify(tools, 1);
-        //UpdateBC();
+        Truthify(tools, 1);
+        UpdateBC();
     }
 
     private void Line(object sender, RoutedEventArgs e)
     {
-        truthify(tools, 2);
-        //UpdateBC();
+        Truthify(tools, 2);
+        UpdateBC();
     }
 
     private void Ellipse(object sender, RoutedEventArgs e)
     {
-        truthify(tools, 3);
-        //UpdateBC();
+        Truthify(tools, 3);
+        UpdateBC();
     }
 
     private void Rect(object sender, RoutedEventArgs e)
     {
-        truthify(tools, 4);
-        //UpdateBC();
+        Truthify(tools, 4);
+        UpdateBC();
     }
 
     private void Clear(object sender, RoutedEventArgs e)
     {
         Canvass.Children.Clear();
-        truthify(tools, 0);
+        Truthify(tools, 0);
     }
 
     private void Draw(Point x1, Point x2, Color color)
@@ -104,6 +104,39 @@ public partial class MainWindow : Window
         };
         Canvass.Children.Add(line);
     }
+
+    private void DrawRect(Point x1, Point x2, Color color)
+    {
+        Point pointx1y2 = new Point(x1.X, x2.Y);
+        Point pointx2y1 = new Point(x2.X, x1.Y);
+        Draw(x1, pointx1y2, color);
+        Draw(x1, pointx2y1, color);
+        Draw(pointx1y2, x2, color);
+        Draw(pointx2y1, x2, color);
+    }
+    
+    private void DrawEllipse(Point p1, Point p2, Color color)
+    {
+        SolidColorBrush brush = new SolidColorBrush(color);
+        Ellipse ellipse = new Ellipse
+        {
+            Stroke = brush,
+            StrokeThickness = thickness,
+            Fill = Brushes.Transparent
+        };
+        
+        double x = Math.Min(p1.X, p2.X);
+        double y = Math.Min(p1.Y, p2.Y);
+        double width = Math.Abs(p2.X - p1.X);
+        double height = Math.Abs(p2.Y - p1.Y);
+        
+        Canvas.SetLeft(ellipse, x);
+        Canvas.SetTop(ellipse, y);
+        ellipse.Width = width;
+        ellipse.Height = height;
+        
+        Canvass.Children.Add(ellipse);
+    }
     
     private void ChangeColor(object sender, RoutedEventArgs e)
     {
@@ -120,10 +153,8 @@ public partial class MainWindow : Window
 
     private void Draw_move(object sender, MouseEventArgs e)
     {
-        if (!isDraw)
-        {
-            return;
-        }
+        if (!isDraw) { return; }
+        if (tools[3] || tools[4] || tools[2]) { return; }
         Point point2 = e.GetPosition(Canvass);
         if (tools[0]) { Draw(point1, point2, currentColor); }
         if (tools[1]) { Draw(point1, point2, Color.FromArgb(255, 255, 255, 255)); }
@@ -133,6 +164,22 @@ public partial class MainWindow : Window
     private void Draw_up(object sender, MouseButtonEventArgs e)
     {
         isDraw = false;
+        if (tools[2] || tools[3] || tools[4])
+        {
+            Point point2 = e.GetPosition(Canvass);
+            if (tools[2])
+            {
+                Draw(point1, point2, currentColor);
+            }
+            if (tools[3])
+            {
+                DrawEllipse(point1, point2, currentColor);
+            }
+            if (tools[4])
+            {
+                DrawRect(point1, point2, currentColor);
+            }
+        }
     }
 
     public MainWindow()
@@ -140,17 +187,23 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
     
-    /*private void UpdateBC()
+    private void UpdateBC()
     {
-        if (brush)
+        if (tools[0])
         {
             BrushB.Background = Brushes.LightBlue;
             EraserB.Background = Brushes.LightGray;
         }
-        else
+
+        if (tools[1])
         {
             BrushB.Background = Brushes.LightGray;
             EraserB.Background = Brushes.LightBlue;
         }
-    }*/
+        if(!tools[0] && !tools[1])
+        {
+            BrushB.Background = Brushes.LightGray;
+            EraserB.Background = Brushes.LightGray;
+        }
+    }
 }
