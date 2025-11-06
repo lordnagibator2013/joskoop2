@@ -14,8 +14,8 @@
 
         <StackPanel Grid.Column="0" Background="LightGray">
             <TextBlock Text="Инструменты" Margin="5"/>
-            <Button x:Name="BrushB" Content="Кисть" Margin="5" Click="Brush"/>
-            <Button x:Name="EraserB" Content="Ластик" Margin="5" Click="Eraser"/>
+            <Button x:Name="BrushB" Content="Кисть" Margin="5" Background="{Binding BrushColor}" Click="Brush"/>
+            <Button x:Name="EraserB" Content="Ластик" Margin="5" Background="{Binding BrushColor}" Click="Eraser"/>
             <!--Background="{Binding BrushColor}"-->
             <Button x:Name="Reset" Content="Очистить" Margin="5" Click="Clear"/>
 
@@ -52,6 +52,18 @@
                 <Button Background="#324032" Margin="5"/>
                 <Button Background="Pink" Margin="5"/>
             </UniformGrid>
+
+            <StackPanel Orientation="Horizontal" Margin="5,600,10,5">
+                <TextBox x:Name="FileName"
+                    Width = "60"
+                    Margin="5"
+                    Text=""/>
+                <Button x:Name="SaveName" 
+                    Background="LightGreen"
+                    Content="Save" 
+                    Margin="5" 
+                    Click="SavePic"/>
+            </StackPanel>
         </StackPanel>
 
         <Grid Grid.Column="1" Background="White">

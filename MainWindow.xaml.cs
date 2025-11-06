@@ -8,6 +8,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.IO;
+using Microsoft.Win32;
+using System.IO.Enumeration;
 
 namespace lord13;
 
@@ -186,7 +189,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
     }
-    
+
     private void UpdateBC()
     {
         if (tools[0])
@@ -200,10 +203,43 @@ public partial class MainWindow : Window
             BrushB.Background = Brushes.LightGray;
             EraserB.Background = Brushes.LightBlue;
         }
-        if(!tools[0] && !tools[1])
+        if (!tools[0] && !tools[1])
         {
             BrushB.Background = Brushes.LightGray;
             EraserB.Background = Brushes.LightGray;
         }
+    }
+
+    private void SaveAsJpg(string filePath)
+    {
+        double width = Canvass.ActualWidth;
+        double height = Canvass.ActualHeight;
+
+        RenderTargetBitmap bitmap = new RenderTargetBitmap((int)width, (int)height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(Canvass);
+
+        JpegBitmapEncoder jpegEncoder = new JpegBitmapEncoder();
+        jpegEncoder.QualityLevel = 100;
+        jpegEncoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+        using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            jpegEncoder.Save(fileStream);
+        }
+    }
+    
+    private void SavePic(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(FileName.Text))
+            {
+                Error();
+                return;
+            }
+
+        string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        string fullPath = System.IO.Path.Combine(desktopPath, FileName.Text + ".jpg");
+
+        SaveAsJpg(fullPath);
+        MessageBox.Show("даблю");
     }
 }
