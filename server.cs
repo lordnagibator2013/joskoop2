@@ -36,7 +36,7 @@ public class ChatServer
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"мимо: {ex.Message}");
+                Console.WriteLine($"свонялся: {ex.Message}");
             }
         }
     }
