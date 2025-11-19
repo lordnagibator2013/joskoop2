@@ -157,7 +157,7 @@ public partial class MainWindow : Window
     private void Draw_move(object sender, MouseEventArgs e)
     {
         if (!isDraw) { return; }
-        if (tools[3] || tools[4] || tools[2]) { return; }
+        if (tools[2] || tools[3] || tools[4]) { return; }
         Point point2 = e.GetPosition(Canvass);
         if (tools[0]) { Draw(point1, point2, currentColor); }
         if (tools[1]) { Draw(point1, point2, Color.FromArgb(255, 255, 255, 255)); }
@@ -231,14 +231,14 @@ public partial class MainWindow : Window
     private void SavePic(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(FileName.Text))
-            {
-                Error();
-                return;
-            }
+        {
+            Error();
+            return;
+        }
 
         string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
         string fullPath = System.IO.Path.Combine(desktopPath, FileName.Text + ".jpg");
-
+        //с поправкой на то, что пользователь следит за заполненностью рабочего стола
         SaveAsJpg(fullPath);
         MessageBox.Show("даблю");
     }

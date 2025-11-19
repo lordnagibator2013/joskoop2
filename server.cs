@@ -23,7 +23,6 @@ public class ChatServer
     {
         _listener.Start();
         _isRunning = true;
-        Console.WriteLine($"Сервер запущен на порту {((IPEndPoint)_listener.LocalEndpoint).Port}...");
         
         while (_isRunning)
         {
@@ -31,13 +30,13 @@ public class ChatServer
             {
                 TcpClient client = await _listener.AcceptTcpClientAsync();
                 _connectedClients.Add(client);
-                Console.WriteLine($"Новое подключение! Всего клиентов: {_connectedClients.Count}");
+                Console.WriteLine($"ещё один, всего бродяг {_connectedClients.Count}");
                 
                 _ = HandleClientAsync(client);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при подключении: {ex.Message}");
+                Console.WriteLine($"мимо: {ex.Message}");
             }
         }
     }
