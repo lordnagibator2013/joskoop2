@@ -1,0 +1,78 @@
+/* Общий фон */
+QWidget {
+    background-color: #e0e0e0;
+    font-family: Segoe UI;
+    font-size: 14px;
+}
+
+/* Главное окно */
+QMainWindow {
+    background-color: #e0e0e0;
+}
+
+/* Верхняя панель */
+#TopBar {
+    background-color: #2c3e50;
+}
+
+/* Поле поиска */
+#SearchField {
+    background-color: #34495e;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 12px;
+}
+
+/* Кнопка создания чата */
+#CreateChatButton {
+    background-color: #1abc9c;
+    border-radius: 20px;
+}
+#CreateChatButton:hover {
+    background-color: #16a085;
+}
+
+/* Нижняя панель */
+#BottomBar {
+    background-color: #2c3e50;
+}
+
+/* Кнопки навигации */
+.NavButton {
+    background-color: #34495e;
+    color: white;
+    border-radius: 15px;
+    padding: 8px 20px;
+}
+.NavButton:hover {
+    background-color: #3d566e;
+}
+
+/* Поля ввода */
+QLineEdit {
+    background-color: white;
+    border: 2px solid #aaa;
+    border-radius: 20px;
+    padding: 6px 12px;
+}
+
+QLineEdit:focus {
+    border-color: #448aff;
+}
+
+/* Все кнопки */
+QPushButton {
+    background-color: #448aff;
+    color: white;
+    border-radius: 16px;
+    padding: 8px 20px;
+}
+
+QPushButton:hover {
+    background-color: #2979ff;
+}
+
+QPushButton:pressed {
+    background-color: #1c54b2;
+}
