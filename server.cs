@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace lord13;
 
@@ -60,5 +62,26 @@ public class ChatMessage
         this.userName = userName;
         this.text = text;
         Timestamp = DateTime.Now;
+    }
+
+    private void LoadHistory()
+    {
+        if (/*!file*/)
+        {
+            return;
+        }
+
+        string[] lines = File.ReadAllLines(_historyFile);
+        foreach (string line in lines)
+        {
+            // тут обратно
+        }
+    }
+
+    public void SaveMessage(ChatMessage message)
+    {
+        string json = JsonConvert.SerializeObject(message);
+        File.AppendAllText(_historyFile, json + Environment.NewLine);
+        _messageHistory.Add(message); // Также сохраняем в память
     }
 }
