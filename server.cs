@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.IO;
+using System.Security.Policy;
+using System.ComponentModel.DataAnnotations;
+using static System.Math;
 
 namespace lord13;
 
@@ -82,6 +85,33 @@ public class ChatMessage
     {
         string json = JsonConvert.SerializeObject(message);
         File.AppendAllText(_historyFile, json + Environment.NewLine);
-        _messageHistory.Add(message); // Также сохраняем в память
+        _messageHistory.Add(message);
+    }
+}
+
+public class User
+{
+    private string login { get; set; }
+    private string passwordHash { get; set; }
+
+    public User(string login, string password)
+    {
+        this.login = login;
+        passwordHash = Hash(password);
+    }
+
+    private string Hash(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return "0";
+
+        string hash = "";
+
+        for (int i = 0; i < name.Length; ++i)
+        {
+            int c = (int)(name[i]);
+            hash += System.Convert.ToString(Math.Pow(c, i + 1));
+        }
+        return hash;
     }
 }
