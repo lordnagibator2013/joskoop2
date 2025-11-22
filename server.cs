@@ -58,6 +58,7 @@ public class ChatMessage
     private string text { get; set; }
     private string userName { get; set; }
     private DateTime Timestamp { get; set; }
+    //private File Message =
 
     public ChatMessage(string type, string userName, string text)
     {
@@ -92,11 +93,13 @@ public class ChatMessage
 public class User
 {
     private string login { get; set; }
+    public string loginHash { get; set; }
     private string passwordHash { get; set; }
 
     public User(string login, string password)
     {
         this.login = login;
+        loginHash = Hash(login);
         passwordHash = Hash(password);
     }
 
