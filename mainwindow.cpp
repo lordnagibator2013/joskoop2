@@ -1,0 +1,293 @@
+#include "mainwindow.h"
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QIcon>
+#include <QDateTime>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <algorithm>
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent) {
+    setWindowTitle("Messenger");
+    resize(800, 600);
+
+    QWidget *central = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(central);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // Верхняя панель
+    QWidget *topBar = new QWidget(this);
+    topBar->setObjectName("TopBar");
+    topBar->setFixedHeight(60);
+
+    QHBoxLayout *topLayout = new QHBoxLayout(topBar);
+    topLayout->setContentsMargins(10, 10, 10, 10);
+    topLayout->setSpacing(10);
+
+    QLineEdit *searchField = new QLineEdit(topBar);
+    searchField->setPlaceholderText("Search...");
+    searchField->setObjectName("SearchField");
+
+    QPushButton *createChatBtn = new QPushButton(topBar);
+    createChatBtn->setObjectName("CreateChatButton");
+    createChatBtn->setIcon(QIcon("://plus.png"));
+    createChatBtn->setIconSize(QSize(20, 20));
+    createChatBtn->setFixedSize(40, 40);
+
+    topLayout->addWidget(searchField);
+    topLayout->addWidget(createChatBtn);
+
+    // Стек
+    stack = new QStackedWidget(this);
+    stack->addWidget(createChatsPage());     // index 0
+    stack->addWidget(createSettingsPage());  // index 1
+    stack->addWidget(createProfilePage());   // index 2
+
+    // Нижняя панель
+    QWidget *bottomBar = new QWidget(this);
+    bottomBar->setObjectName("BottomBar");
+    bottomBar->setFixedHeight(60);
+
+    QHBoxLayout *navLayout = new QHBoxLayout(bottomBar);
+    navLayout->setContentsMargins(0, 0, 0, 0);
+    navLayout->setSpacing(30);
+    navLayout->setAlignment(Qt::AlignCenter);
+
+    // Создаём кнопки с уникальными objectName
+    chatsButton = new QPushButton("Chats", bottomBar);
+    chatsButton->setObjectName("NavChats");
+    chatsButton->setFixedSize(100, 30);
+
+    settingsButton = new QPushButton("Settings", bottomBar);
+    settingsButton->setObjectName("NavSettings");
+    settingsButton->setFixedSize(100, 30);
+
+    profileButton = new QPushButton("Profile", bottomBar);
+    profileButton->setObjectName("NavProfile");
+    profileButton->setFixedSize(100, 30);
+
+    // Добавляем кнопки в нижнюю панель
+    navLayout->addWidget(chatsButton);
+    navLayout->addWidget(settingsButton);
+    navLayout->addWidget(profileButton);
+
+    // Подключаем сигналы
+    connect(chatsButton,   &QPushButton::clicked, this, &MainWindow::switchToChats);
+    connect(settingsButton,&QPushButton::clicked, this, &MainWindow::switchToSettings);
+    connect(profileButton, &QPushButton::clicked, this, &MainWindow::switchToProfile);
+
+    // Сборка
+    mainLayout->addWidget(topBar);
+    mainLayout->addWidget(stack);
+    mainLayout->addWidget(bottomBar);
+    setCentralWidget(central);
+
+    // Инициализация активности и списка чатов
+    chatActivity["Me"] = QDateTime::currentDateTime();
+    refreshChatList();
+    stack->setCurrentIndex(0);
+}
+
+QWidget* MainWindow::createChatsPage() {
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(10);
+
+    QLabel *label = new QLabel("Select a chat to start messaging:", page);
+    layout->addWidget(label);
+
+    QWidget *chatListContainer = new QWidget(page);
+    chatListContainer->setObjectName("ChatList");
+    QVBoxLayout *chatListLayout = new QVBoxLayout(chatListContainer);
+    chatListLayout->setSpacing(10);
+    chatListLayout->setContentsMargins(0, 0, 0, 0);
+    chatListContainer->setLayout(chatListLayout);
+
+    layout->addWidget(chatListContainer);
+    return page;
+}
+
+QWidget* MainWindow::createSettingsPage() {
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->addWidget(new QLabel("Settings", page));
+    return page;
+}
+
+QWidget* MainWindow::createProfilePage() {
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->addWidget(new QLabel("Profile", page));
+    return page;
+}
+
+void MainWindow::refreshChatList() {
+    QWidget *chatsPage = stack->widget(0);
+    QWidget *chatListContainer = chatsPage->findChild<QWidget*>("ChatList");
+    if (!chatListContainer) return;
+
+    QLayout *layout = chatListContainer->layout();
+    while (QLayoutItem *child = layout->takeAt(0)) {
+        if (child->widget()) child->widget()->deleteLater();
+        delete child;
+    }
+
+    QList<QString> sortedChats = chatActivity.keys();
+    std::sort(sortedChats.begin(), sortedChats.end(), [&](const QString &a, const QString &b) {
+        return chatActivity[a] > chatActivity[b];
+    });
+
+    for (const QString &chatName : sortedChats) {
+        QPushButton *chatBtn = new QPushButton(chatName, chatListContainer);
+        chatBtn->setObjectName("ChatEntry");
+        chatBtn->setFixedHeight(40);
+        layout->addWidget(chatBtn);
+
+        if (chatName == "Me") {
+            connect(chatBtn, &QPushButton::clicked, this, &MainWindow::openMeChat);
+        }
+    }
+
+    if (auto *vbox = qobject_cast<QVBoxLayout*>(layout)) {
+        vbox->addStretch();
+    }
+}
+
+void MainWindow::openMeChat() {
+    chatPage = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(chatPage);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // Верхняя панель чата
+    QWidget *chatTopBar = new QWidget(chatPage);
+    chatTopBar->setObjectName("ChatTopBar");
+    chatTopBar->setFixedHeight(50);
+
+    QHBoxLayout *topLayout = new QHBoxLayout(chatTopBar);
+    topLayout->setContentsMargins(10, 10, 10, 10);
+    topLayout->setSpacing(10);
+
+    QPushButton *backBtn = new QPushButton(chatTopBar);
+    backBtn->setObjectName("BackButton");
+    backBtn->setIcon(QIcon("://back.png"));
+    backBtn->setIconSize(QSize(20, 20));
+    backBtn->setFixedSize(40, 40);
+
+    QLabel *chatTitle = new QLabel("Me", chatTopBar);
+    chatTitle->setObjectName("ChatTitle");
+
+    topLayout->addWidget(backBtn);
+    topLayout->addWidget(chatTitle);
+    topLayout->addStretch();
+
+    connect(backBtn, &QPushButton::clicked, this, &MainWindow::switchToChats);
+
+    // Область сообщений
+    QWidget *messageArea = new QWidget(chatPage);
+    messageArea->setObjectName("MessageArea");
+
+    QVBoxLayout *scrollLayout = new QVBoxLayout(messageArea);
+    scrollLayout->setContentsMargins(10, 10, 10, 10);
+    scrollLayout->setSpacing(10);
+
+    messageLayout = scrollLayout;
+
+    for (const QString &msg : meMessages) {
+        QLabel *msgLabel = new QLabel(msg, messageArea);
+        msgLabel->setObjectName("MessageBubble");
+        msgLabel->setWordWrap(true);
+        messageLayout->addWidget(msgLabel);
+    }
+    messageLayout->addStretch();
+
+    // Нижняя панель ввода
+    QWidget *chatBottomBar = new QWidget(chatPage);
+    chatBottomBar->setObjectName("ChatBottomBar");
+    chatBottomBar->setFixedHeight(60);
+
+    QHBoxLayout *bottomLayout = new QHBoxLayout(chatBottomBar);
+    bottomLayout->setContentsMargins(10, 10, 10, 10);
+    bottomLayout->setSpacing(10);
+
+    messageEdit = new QLineEdit(chatBottomBar);
+    messageEdit->setPlaceholderText("Type a message...");
+    messageEdit->setObjectName("MessageInput");
+
+    QPushButton *sendBtn = new QPushButton(chatBottomBar);
+    sendBtn->setObjectName("SendButton");
+    sendBtn->setIcon(QIcon("://send.png"));
+    sendBtn->setIconSize(QSize(20, 20));
+    sendBtn->setFixedSize(40, 40);
+
+    bottomLayout->addWidget(messageEdit);
+    bottomLayout->addWidget(sendBtn);
+
+    connect(sendBtn, &QPushButton::clicked, this, &MainWindow::sendMessage);
+
+    // Сборка
+    mainLayout->addWidget(chatTopBar);
+    mainLayout->addWidget(messageArea);
+    mainLayout->addWidget(chatBottomBar);
+
+    stack->addWidget(chatPage);
+    stack->setCurrentWidget(chatPage);
+}
+
+void MainWindow::sendMessage() {
+    if (!messageEdit || !messageLayout) return;
+    const QString text = messageEdit->text().trimmed();
+    if (text.isEmpty()) return;
+
+    // Создаём виджет сообщения
+    QLabel *msgLabel = new QLabel(text, chatPage);
+    msgLabel->setObjectName("MessageBubble");
+    msgLabel->setWordWrap(true);
+
+    // Вставляем перед растяжкой (последний элемент)
+    int count = messageLayout->count();
+    if (count > 0) {
+        messageLayout->insertWidget(count - 1, msgLabel);
+    } else {
+        messageLayout->addWidget(msgLabel);
+    }
+
+    // Данные
+    meMessages.append(text);
+    messageEdit->clear();
+
+    // Обновляем активность и список чатов
+    chatActivity["Me"] = QDateTime::currentDateTime();
+    refreshChatList();
+}
+
+void MainWindow::switchToChats() {
+    // Вернуться на страницу чатов
+    stack->setCurrentIndex(0);
+    refreshChatList();
+
+    // Очистить динамическую страницу чата
+    if (chatPage) {
+        int idx = stack->indexOf(chatPage);
+        if (idx != -1) {
+            QWidget *toRemove = stack->widget(idx);
+            stack->removeWidget(toRemove);
+            toRemove->deleteLater();
+        }
+        chatPage = nullptr;
+        messageLayout = nullptr;
+        messageEdit = nullptr;
+    }
+}
+
+void MainWindow::switchToSettings() {
+    stack->setCurrentIndex(1);
+}
+
+void MainWindow::switchToProfile() {
+    stack->setCurrentIndex(2);
+}
