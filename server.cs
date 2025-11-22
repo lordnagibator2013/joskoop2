@@ -52,13 +52,13 @@ public class ChatServer
     }
 }
 
-public class ChatMessage
+public class ChatMessage // soobsch
 {
     private string type { get; set; }
     private string text { get; set; }
     private string userName { get; set; }
     private DateTime Timestamp { get; set; }
-    //private File Message =
+    private string messageFile = "smessage.json";
 
     public ChatMessage(string type, string userName, string text)
     {
@@ -70,12 +70,12 @@ public class ChatMessage
 
     private void LoadHistory()
     {
-        if (/*!file*/)
+        if (!messageFile)
         {
             return;
         }
 
-        string[] lines = File.ReadAllLines(_historyFile);
+        string[] lines = File.ReadAllLines(messageFile);
         foreach (string line in lines)
         {
             // тут обратно
@@ -87,34 +87,5 @@ public class ChatMessage
         string json = JsonConvert.SerializeObject(message);
         File.AppendAllText(_historyFile, json + Environment.NewLine);
         _messageHistory.Add(message);
-    }
-}
-
-public class User
-{
-    private string login { get; set; }
-    public string loginHash { get; set; }
-    private string passwordHash { get; set; }
-
-    public User(string login, string password)
-    {
-        this.login = login;
-        loginHash = Hash(login);
-        passwordHash = Hash(password);
-    }
-
-    private string Hash(string name)
-    {
-        if (string.IsNullOrEmpty(name))
-            return "0";
-
-        string hash = "";
-
-        for (int i = 0; i < name.Length; ++i)
-        {
-            int c = (int)(name[i]);
-            hash += System.Convert.ToString(Math.Pow(c, i + 1));
-        }
-        return hash;
     }
 }
