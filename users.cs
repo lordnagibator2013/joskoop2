@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace lord13;
 
 public class User //common
 {
-    private string login { get; set; }
-    public string loginHash { get; set; }
-    private string passwordHash { get; set; }
+    public string login { get; set; }
+    public string loginHash { get; private set; }
+    public string passwordHash { get; set; }
 
     public User(string login, string password)
     {
@@ -34,22 +37,34 @@ public class User //common
 public class UserMeth //methods
 {
     public string usersFile = "susers.json";
-    public string[] users;
-    public void URegister(User user)
+    private List<User> users = new List<User>();
+    public bool URegister(User user)
     {
-
+        if (!LUnique(user.login) || user.login.Length > 16 || user.login.Length < 3)
+        {
+            Service.Error();
+            return false;
+        }
+        
+        users.Add(user);
+        SaveU(user);
+        return true;
     }
 
-    public void UAuth(User user)
+    public bool UAuth(string login, string password)
     {
+        User usero = users.Find(u => u.login == login);
+        if (usero == null) 
+            return false;
 
+        User tempUser = new User("", password);
+        
+        return tempUser.passwordHash == tempUser.passwordHash;
     }
 
     public bool LUnique(string login)
     {
-        bool unique = true;
-
-        return unique;
+        return users.Find(u => u.login == login) == null;
     }
 
     public void LoadU()
@@ -58,12 +73,13 @@ public class UserMeth //methods
         foreach (string line in lines)
         {
             User user = JsonConvert.DeserializeObject<User>(line);
-            _users.Add(user);
+            users.Add(user);
         }
     }
     
-    public void SaveU()
+    public void SaveU(User user)
     {
-        
+        string json = JsonConvert.SerializeObject(user);
+        File.AppendAllText(usersFile, json + Environment.NewLine);
     }
 }

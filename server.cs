@@ -70,11 +70,6 @@ public class ChatMessage // soobsch
 
     private void LoadHistory()
     {
-        if (!messageFile)
-        {
-            return;
-        }
-
         string[] lines = File.ReadAllLines(messageFile);
         foreach (string line in lines)
         {
@@ -85,7 +80,7 @@ public class ChatMessage // soobsch
     public void SaveMessage(ChatMessage message)
     {
         string json = JsonConvert.SerializeObject(message);
-        File.AppendAllText(_historyFile, json + Environment.NewLine);
-        _messageHistory.Add(message);
+        File.AppendAllText(messageFile, json + Environment.NewLine);
+        messageFile.Add(message);
     }
 }
