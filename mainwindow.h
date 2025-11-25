@@ -37,7 +37,7 @@ private:
     QWidget *chatPage;
     QVBoxLayout *messageLayout;
     QLineEdit *messageEdit;
-
+    QString selectedWallpaperPath;
     QList<ChatMessage> chatHistory;
     QMap<QString, QDateTime> chatActivity;
 
@@ -50,7 +50,7 @@ private:
     QWidget* createMessageBubble(const QString &text, bool isOutgoing);
     void animateMessage(QWidget *target);
     QLabel *chatBackgroundLabel = nullptr;
-    QString selectedWallpaperPath;
+
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
