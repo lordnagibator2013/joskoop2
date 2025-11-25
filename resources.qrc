@@ -3,5 +3,7 @@
         <file>loading.gif.gif</file>
         <file>style.qss</file>
         <file>plus.png</file>
+        <file>send.png</file>
+        <file>back.png</file>
     </qresource>
 </RCC>

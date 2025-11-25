@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QMap>
 #include <QDateTime>
+#include <QLabel>
 
 struct ChatMessage {
     QString text;
@@ -25,6 +26,7 @@ private slots:
     void openMeChat();
     void sendMessage();
     void receiveMessage(const QString &text);
+    void chooseChatWallpaper();
 
 private:
     QStackedWidget *stack;
@@ -47,4 +49,10 @@ private:
 
     QWidget* createMessageBubble(const QString &text, bool isOutgoing);
     void animateMessage(QWidget *target);
+    QLabel *chatBackgroundLabel = nullptr;
+    QString selectedWallpaperPath;
+
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
 };

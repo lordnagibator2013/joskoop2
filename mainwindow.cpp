@@ -13,6 +13,11 @@
 #include <QSequentialAnimationGroup>
 #include <QEasingCurve>
 #include <QAbstractAnimation>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QImage>
+#include <QPixmap>
+#include <QEvent>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent) {
@@ -165,11 +170,35 @@ void MainWindow::refreshChatList() {
 
 void MainWindow::openMeChat() {
     chatPage = new QWidget(this);
+    chatPage->setObjectName("ChatPage");
+    chatPage->installEventFilter(this); // для отслеживания изменения размера
+    chatPage->setAttribute(Qt::WA_StyledBackground, true);
+
+    // Фоновое изображение (только если выбран путь)
+    if (!selectedWallpaperPath.isEmpty()) {
+        chatBackgroundLabel = new QLabel(chatPage);
+        chatBackgroundLabel->setObjectName("ChatBackground");
+        chatBackgroundLabel->setScaledContents(true);
+        chatBackgroundLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        chatBackgroundLabel->lower(); // на задний план
+        chatBackgroundLabel->resize(chatPage->size());
+        chatBackgroundLabel->move(0, 0);
+
+        QImage img;
+        if (img.load(selectedWallpaperPath)) {
+            QPixmap pm = QPixmap::fromImage(img);
+            QPixmap scaled = pm.scaled(chatPage->size(),
+                                       Qt::KeepAspectRatioByExpanding,
+                                       Qt::SmoothTransformation);
+            chatBackgroundLabel->setPixmap(scaled);
+        }
+    }
+
     QVBoxLayout *mainLayout = new QVBoxLayout(chatPage);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // Верхняя панель чата
+    // Верхняя панель
     QWidget *chatTopBar = new QWidget(chatPage);
     chatTopBar->setObjectName("ChatTopBar");
     chatTopBar->setFixedHeight(50);
@@ -194,7 +223,14 @@ void MainWindow::openMeChat() {
     connect(backBtn, &QPushButton::clicked, this, &MainWindow::switchToChats);
 
     // Область сообщений
-    QWidget *messageArea = new QWidget(chatPage);
+    QScrollArea *scrollArea = new QScrollArea(chatPage);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setObjectName("ChatScrollArea");
+    scrollArea->setStyleSheet("background: transparent; border: none;");
+
+    QWidget *messageArea = new QWidget();
     messageArea->setObjectName("MessageArea");
 
     QVBoxLayout *scrollLayout = new QVBoxLayout(messageArea);
@@ -202,15 +238,16 @@ void MainWindow::openMeChat() {
     scrollLayout->setSpacing(10);
 
     messageLayout = scrollLayout;
+    scrollArea->setWidget(messageArea);
 
     for (const ChatMessage &msg : chatHistory) {
         QWidget *msgWrapper = createMessageBubble(msg.text, msg.isOutgoing);
         messageLayout->addWidget(msgWrapper);
     }
 
-    messageLayout->addStretch(); // обязательно!
+    messageLayout->addStretch();
 
-    // Нижняя панель ввода
+    // Нижняя панель
     QWidget *chatBottomBar = new QWidget(chatPage);
     chatBottomBar->setObjectName("ChatBottomBar");
     chatBottomBar->setFixedHeight(60);
@@ -236,12 +273,18 @@ void MainWindow::openMeChat() {
 
     // Сборка
     mainLayout->addWidget(chatTopBar);
-    mainLayout->addWidget(messageArea);
+    mainLayout->addWidget(scrollArea);
     mainLayout->addWidget(chatBottomBar);
 
     stack->addWidget(chatPage);
     stack->setCurrentWidget(chatPage);
 
+    // Прокрутка вниз
+    QTimer::singleShot(0, scrollArea->verticalScrollBar(), [scrollArea]() {
+        scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
+    });
+
+    // Первое сообщение
     if (!hasReceivedInitialMessage) {
         receiveMessage("Пошла нахуй мама ебаная");
         hasReceivedInitialMessage = true;
@@ -249,34 +292,54 @@ void MainWindow::openMeChat() {
 }
 
 QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing) {
-    QLabel *msgLabel = new QLabel(text, chatPage);
-    msgLabel->setObjectName(isOutgoing ? "MessageBubble" : "IncomingBubble");
-    msgLabel->setWordWrap(true);
-    msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    msgLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    // Контейнер для выравнивания (без фона)
+    QWidget *alignWrapper = new QWidget();
+    alignWrapper->setAttribute(Qt::WA_StyledBackground, false);
 
-    QFontMetrics metrics(msgLabel->font());
-    int textWidth = metrics.horizontalAdvance(text);
-    int padding = 28;
-    int maxWidth = chatPage->width() * 0.6;
-    int finalWidth = std::min(textWidth + padding, static_cast<int>(maxWidth));
-    msgLabel->setMaximumWidth(finalWidth);
-    msgLabel->adjustSize();
 
-    QWidget *msgWrapper = new QWidget(chatPage);
-    QHBoxLayout *wrapperLayout = new QHBoxLayout(msgWrapper);
-    wrapperLayout->setContentsMargins(0, 0, 0, 0);
-    wrapperLayout->setSpacing(0);
+    QHBoxLayout *alignLayout = new QHBoxLayout(alignWrapper);
+    alignLayout->setContentsMargins(10, 6, 10, 6);
+    alignLayout->setSpacing(0);
 
-    if (isOutgoing) {
-        wrapperLayout->addStretch();
-        wrapperLayout->addWidget(msgLabel);
-    } else {
-        wrapperLayout->addWidget(msgLabel);
-        wrapperLayout->addStretch();
+    // Сам пузырёк (фон и рамка рисуются через QSS)
+    QWidget *msgWrapper = new QWidget();
+    msgWrapper->setObjectName(isOutgoing ? "MessageBubble" : "IncomingBubble");
+    if (isOutgoing){
+        msgWrapper->setStyleSheet("background-color: #448aff;");
+    }
+    else{
+        msgWrapper->setStyleSheet("background-color: #dfe6e9;");
     }
 
-    return msgWrapper;
+    msgWrapper->setAttribute(Qt::WA_StyledBackground, true); // критично!
+
+    // Внутренний текст
+    QLabel *msgLabel = new QLabel(text, msgWrapper);
+    msgLabel->setWordWrap(true);
+    msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    msgLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    // Ограничение ширины
+    QFontMetrics fm(msgLabel->font());
+    int maxWidth = 400;
+    msgLabel->setMaximumWidth(maxWidth);
+
+    // Внутренний layout пузырька (имитируем padding из QSS для корректной вёрстки)
+    QVBoxLayout *bubbleLayout = new QVBoxLayout(msgWrapper);
+    bubbleLayout->setContentsMargins(14, 8, 14, 8); // соответствует padding в QSS
+    bubbleLayout->setSpacing(0);
+    bubbleLayout->addWidget(msgLabel);
+
+    // Выравнивание
+    if (isOutgoing) {
+        alignLayout->addStretch();
+        alignLayout->addWidget(msgWrapper);
+    } else {
+        alignLayout->addWidget(msgWrapper);
+        alignLayout->addStretch();
+    }
+
+    return alignWrapper;
 }
 
 void MainWindow::sendMessage() {
@@ -312,6 +375,7 @@ void MainWindow::receiveMessage(const QString &text) {
     }
 
     animateMessage(msgWrapper);
+
     chatHistory.append({text, false});
 }
 
@@ -320,12 +384,30 @@ void MainWindow::animateMessage(QWidget *target) {
     target->setGraphicsEffect(opacity);
     opacity->setOpacity(0.0);
 
+    // Анимация прозрачности
     QPropertyAnimation *fadeIn = new QPropertyAnimation(opacity, "opacity");
     fadeIn->setDuration(300);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(1.0);
     fadeIn->setEasingCurve(QEasingCurve::OutCubic);
 
+    // Анимация прокрутки
+    QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
+    if (scrollArea) {
+        QScrollBar *vScroll = scrollArea->verticalScrollBar();
+        int start = vScroll->value();
+        int end = vScroll->maximum();
+
+        QPropertyAnimation *scrollAnim = new QPropertyAnimation(vScroll, "value");
+        scrollAnim->setDuration(300);
+        scrollAnim->setStartValue(start);
+        scrollAnim->setEndValue(end);
+        scrollAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+        scrollAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
+    // Удаляем эффект после завершения
     connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
         target->setGraphicsEffect(nullptr);
     });
@@ -354,6 +436,75 @@ void MainWindow::switchToChats() {
 
 void MainWindow::switchToSettings() {
     stack->setCurrentIndex(1);
+    QWidget *settingsPage = stack->widget(1);
+    if (!settingsPage->findChild<QPushButton*>("WallpaperButton")) {
+        QPushButton *wallpaperBtn = new QPushButton("Сменить обои", settingsPage);
+        wallpaperBtn->setObjectName("WallpaperButton");
+        wallpaperBtn->setFixedHeight(40);
+
+        QVBoxLayout *layout = qobject_cast<QVBoxLayout*>(settingsPage->layout());
+        if (!layout) {
+            layout = new QVBoxLayout(settingsPage);
+            settingsPage->setLayout(layout);
+        }
+
+        layout->addWidget(wallpaperBtn);
+
+        connect(wallpaperBtn, &QPushButton::clicked, this, &MainWindow::chooseChatWallpaper);
+    }
+}
+
+void MainWindow::chooseChatWallpaper() {
+    QString filePath = QFileDialog::getOpenFileName(
+        this, "Выберите обои для чата", "",
+        "Изображения (*.png *.jpg *.jpeg *.bmp)"
+        );
+    if (filePath.isEmpty()) return;
+
+    QImage img;
+    if (!img.load(filePath)) {
+        QMessageBox::warning(this, "Ошибка", "Не удалось загрузить изображение.");
+        return;
+    }
+
+    selectedWallpaperPath = filePath;
+
+    // Если чат уже открыт — применим сразу
+    if (chatPage && chatBackgroundLabel) {
+        QPixmap pm = QPixmap::fromImage(img);
+        QPixmap scaled = pm.scaled(chatPage->size(),
+                                   Qt::KeepAspectRatioByExpanding,
+                                   Qt::SmoothTransformation);
+        chatBackgroundLabel->setPixmap(scaled);
+    }
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event) {
+    QMainWindow::resizeEvent(event);
+
+    if (chatBackgroundLabel && chatPage) {
+        chatBackgroundLabel->resize(chatPage->size());
+    }
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
+    if (obj == chatPage && event->type() == QEvent::Resize) {
+        if (chatBackgroundLabel) {
+            chatBackgroundLabel->resize(chatPage->size());
+
+            if (!selectedWallpaperPath.isEmpty()) {
+                QImage img;
+                if (img.load(selectedWallpaperPath)) {
+                    QPixmap pm = QPixmap::fromImage(img);
+                    QPixmap scaled = pm.scaled(chatPage->size(),
+                                               Qt::KeepAspectRatioByExpanding,
+                                               Qt::SmoothTransformation);
+                    chatBackgroundLabel->setPixmap(scaled);
+                }
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void MainWindow::switchToProfile() {
