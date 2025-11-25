@@ -7,6 +7,12 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <algorithm>
+#include <QTimer>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
+#include <QSequentialAnimationGroup>
+#include <QEasingCurve>
+#include <QAbstractAnimation>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent) {
@@ -197,13 +203,12 @@ void MainWindow::openMeChat() {
 
     messageLayout = scrollLayout;
 
-    for (const QString &msg : meMessages) {
-        QLabel *msgLabel = new QLabel(msg, messageArea);
-        msgLabel->setObjectName("MessageBubble");
-        msgLabel->setWordWrap(true);
-        messageLayout->addWidget(msgLabel);
+    for (const ChatMessage &msg : chatHistory) {
+        QWidget *msgWrapper = createMessageBubble(msg.text, msg.isOutgoing);
+        messageLayout->addWidget(msgWrapper);
     }
-    messageLayout->addStretch();
+
+    messageLayout->addStretch(); // обязательно!
 
     // Нижняя панель ввода
     QWidget *chatBottomBar = new QWidget(chatPage);
@@ -236,6 +241,42 @@ void MainWindow::openMeChat() {
 
     stack->addWidget(chatPage);
     stack->setCurrentWidget(chatPage);
+
+    if (!hasReceivedInitialMessage) {
+        receiveMessage("Пошла нахуй мама ебаная");
+        hasReceivedInitialMessage = true;
+    }
+}
+
+QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing) {
+    QLabel *msgLabel = new QLabel(text, chatPage);
+    msgLabel->setObjectName(isOutgoing ? "MessageBubble" : "IncomingBubble");
+    msgLabel->setWordWrap(true);
+    msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    msgLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+
+    QFontMetrics metrics(msgLabel->font());
+    int textWidth = metrics.horizontalAdvance(text);
+    int padding = 28;
+    int maxWidth = chatPage->width() * 0.6;
+    int finalWidth = std::min(textWidth + padding, static_cast<int>(maxWidth));
+    msgLabel->setMaximumWidth(finalWidth);
+    msgLabel->adjustSize();
+
+    QWidget *msgWrapper = new QWidget(chatPage);
+    QHBoxLayout *wrapperLayout = new QHBoxLayout(msgWrapper);
+    wrapperLayout->setContentsMargins(0, 0, 0, 0);
+    wrapperLayout->setSpacing(0);
+
+    if (isOutgoing) {
+        wrapperLayout->addStretch();
+        wrapperLayout->addWidget(msgLabel);
+    } else {
+        wrapperLayout->addWidget(msgLabel);
+        wrapperLayout->addStretch();
+    }
+
+    return msgWrapper;
 }
 
 void MainWindow::sendMessage() {
@@ -243,26 +284,53 @@ void MainWindow::sendMessage() {
     const QString text = messageEdit->text().trimmed();
     if (text.isEmpty()) return;
 
-    // Создаём виджет сообщения
-    QLabel *msgLabel = new QLabel(text, chatPage);
-    msgLabel->setObjectName("MessageBubble");
-    msgLabel->setWordWrap(true);
-
-    // Вставляем перед растяжкой (последний элемент)
+    QWidget *msgWrapper = createMessageBubble(text, true);
     int count = messageLayout->count();
     if (count > 0) {
-        messageLayout->insertWidget(count - 1, msgLabel);
+        messageLayout->insertWidget(count - 1, msgWrapper);
     } else {
-        messageLayout->addWidget(msgLabel);
+        messageLayout->addWidget(msgWrapper);
     }
 
-    // Данные
-    meMessages.append(text);
-    messageEdit->clear();
+    animateMessage(msgWrapper);
 
-    // Обновляем активность и список чатов
+    chatHistory.append({text, true});
+    messageEdit->clear();
     chatActivity["Me"] = QDateTime::currentDateTime();
     refreshChatList();
+}
+
+void MainWindow::receiveMessage(const QString &text) {
+    if (!messageLayout) return;
+
+    QWidget *msgWrapper = createMessageBubble(text, false);
+    int count = messageLayout->count();
+    if (count > 0) {
+        messageLayout->insertWidget(count - 1, msgWrapper);
+    } else {
+        messageLayout->addWidget(msgWrapper);
+    }
+
+    animateMessage(msgWrapper);
+    chatHistory.append({text, false});
+}
+
+void MainWindow::animateMessage(QWidget *target) {
+    auto *opacity = new QGraphicsOpacityEffect(target);
+    target->setGraphicsEffect(opacity);
+    opacity->setOpacity(0.0);
+
+    QPropertyAnimation *fadeIn = new QPropertyAnimation(opacity, "opacity");
+    fadeIn->setDuration(300);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
+
+    connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
+        target->setGraphicsEffect(nullptr);
+    });
+
+    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void MainWindow::switchToChats() {
