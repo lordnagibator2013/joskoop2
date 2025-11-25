@@ -8,6 +8,11 @@
 #include <QMap>
 #include <QDateTime>
 
+struct ChatMessage {
+    QString text;
+    bool isOutgoing;
+};
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -19,6 +24,7 @@ private slots:
     void switchToProfile();
     void openMeChat();
     void sendMessage();
+    void receiveMessage(const QString &text);
 
 private:
     QStackedWidget *stack;
@@ -30,11 +36,15 @@ private:
     QVBoxLayout *messageLayout;
     QLineEdit *messageEdit;
 
-    QList<QString> meMessages;
+    QList<ChatMessage> chatHistory;
     QMap<QString, QDateTime> chatActivity;
 
     QWidget *createChatsPage();
     QWidget *createSettingsPage();
     QWidget *createProfilePage();
     void refreshChatList();
+    bool hasReceivedInitialMessage = false;
+
+    QWidget* createMessageBubble(const QString &text, bool isOutgoing);
+    void animateMessage(QWidget *target);
 };

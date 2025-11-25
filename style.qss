@@ -140,7 +140,16 @@ QWidget, QMainWindow {
     color: white;
     padding: 8px 14px;
     border-radius: 16px;
-    max-width: 60%;
+    max-width: 1000%;
+}
+
+/* Входящее сообщение */
+#IncomingBubble {
+    background-color: #dfe6e9;
+    color: #1a1a1a;
+    padding: 8px 14px;
+    border-radius: 16px;
+    max-width: 1000px;
 }
 
 /* Нижняя панель ввода */
