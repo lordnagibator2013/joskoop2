@@ -14,28 +14,31 @@ namespace lord13;
 
 public class ChatServer
 {
-    private TcpListener _listener;
-    private bool _isRunning;
-    private List<TcpClient> _connectedClients;
+    private TcpListener listener;
+    private bool isRunning;
+    private List<TcpClient> connectedClients;
+    private List<ChatMessage> messageHistory = new List<ChatMessage>();
+    private string messageFile = "smessage.json";
 
     public ChatServer(int port = 8888)
     {
-        _listener = new TcpListener(IPAddress.Any, port);
-        _connectedClients = new List<TcpClient>();
+        listener = new TcpListener(IPAddress.Any, port);
+        connectedClients = new List<TcpClient>();
+        LoadHistory();
     }
 
     public async Task StartAsync()
     {
-        _listener.Start();
-        _isRunning = true;
+        listener.Start();
+        isRunning = true;
 
-        while (_isRunning)
+        while (isRunning)
         {
             try
             {
-                TcpClient client = await _listener.AcceptTcpClientAsync();
-                _connectedClients.Add(client);
-                Console.WriteLine($"ещё один, всего бродяг {_connectedClients.Count}");
+                TcpClient client = await listener.AcceptTcpClientAsync();
+                connectedClients.Add(client);
+                Console.WriteLine($"ещё один, всего бродяг {connectedClients.Count}");
 
                 _ = HandleClientAsync(client);
             }
@@ -46,26 +49,9 @@ public class ChatServer
         }
     }
 
-    private async Task HandleClientAsync(TcpClient client)
+    private Task HandleClientAsync(TcpClient client)
     {
-
-    }
-}
-
-public class ChatMessage // soobsch
-{
-    private string type { get; set; }
-    private string text { get; set; }
-    private string userName { get; set; }
-    private DateTime Timestamp { get; set; }
-    private string messageFile = "smessage.json";
-
-    public ChatMessage(string type, string userName, string text)
-    {
-        this.type = type;
-        this.userName = userName;
-        this.text = text;
-        Timestamp = DateTime.Now;
+        return Task.CompletedTask;
     }
 
     private void LoadHistory()
@@ -73,7 +59,11 @@ public class ChatMessage // soobsch
         string[] lines = File.ReadAllLines(messageFile);
         foreach (string line in lines)
         {
-            // тут обратно
+            if (!string.IsNullOrEmpty(line))
+            {
+                ChatMessage message = JsonConvert.DeserializeObject<ChatMessage>(line);
+                messageHistory.Add(message);
+            }
         }
     }
 
@@ -81,6 +71,22 @@ public class ChatMessage // soobsch
     {
         string json = JsonConvert.SerializeObject(message);
         File.AppendAllText(messageFile, json + Environment.NewLine);
-        messageFile.Add(message);
+        messageHistory.Add(message);
+    }
+}
+
+public class ChatMessage // soobsch
+{
+    public string type { get; set; }
+    public string text { get; set; }
+    public string userName { get; set; }
+    public DateTime Timestamp { get; set; }
+
+    public ChatMessage(string type, string userName, string text)
+    {
+        this.type = type;
+        this.userName = userName;
+        this.text = text;
+        Timestamp = DateTime.Now;
     }
 }
