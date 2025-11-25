@@ -38,9 +38,9 @@ public class UserMeth //methods
 {
     public string usersFile = "susers.json";
     private List<User> users = new List<User>();
-    public bool URegister(User user)
+    public bool URegister(User user) //registr
     {
-        if (!LUnique(user.login) || user.login.Length > 16 || user.login.Length < 3)
+        if (!LUnique(user.login) || user.login.Length > 16)
         {
             Service.Error();
             return false;
@@ -51,7 +51,7 @@ public class UserMeth //methods
         return true;
     }
 
-    public bool UAuth(string login, string password)
+    public bool UAuth(string login, string password) //authenth
     {
         User usero = users.Find(u => u.login == login);
         if (usero == null) 
@@ -62,12 +62,12 @@ public class UserMeth //methods
         return tempUser.passwordHash == tempUser.passwordHash;
     }
 
-    public bool LUnique(string login)
+    public bool LUnique(string login) //check on unikalnost login
     {
         return users.Find(u => u.login == login) == null;
     }
 
-    public void LoadU()
+    public void LoadU() //spisok users
     {
         string[] lines = File.ReadAllLines(usersFile);
         foreach (string line in lines)
@@ -77,7 +77,7 @@ public class UserMeth //methods
         }
     }
     
-    public void SaveU(User user)
+    public void SaveU(User user) //new user
     {
         string json = JsonConvert.SerializeObject(user);
         File.AppendAllText(usersFile, json + Environment.NewLine);
