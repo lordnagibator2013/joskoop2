@@ -99,14 +99,27 @@ QWidget, QMainWindow {
 }
 
 /* Кнопка чата в списке */
+/* Кнопка чата в списке */
 #ChatEntry {
     background-color: #34495e;
     color: white;
-    border-radius: 16px;
-    padding: 8px 16px;
+    border-radius: 12px; /* Более острые углы (было 16px) */
+    padding: 12px 20px;
+    font-size: 16px; /* Увеличенный размер шрифта */
+    font-weight: bold;
+    text-align: left;
+    min-height: 70px;
 }
 #ChatEntry:hover {
     background-color: #3d566e;
+}
+#ChatEntry:pressed {
+    background-color: #2a3e4f;
+}
+
+/* Специфичный стиль для иконки в кнопке чата */
+#ChatEntry::menu-arrow {
+    image: none;
 }
 
 /* Верхняя панель чата */
@@ -118,6 +131,10 @@ QWidget, QMainWindow {
     color: white;
     font-weight: bold;
     font-size: 16px;
+    border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
 }
 
 /* Кнопка назад */
@@ -205,4 +222,16 @@ QPushButton:not(#CreateChatButton):hover {
 }
 QPushButton:not(#CreateChatButton):pressed {
     background-color: #1c54b2;
+}
+
+/* Кнопка смайликов */
+#EmojiButton {
+    background-color: #34495e;
+    border-radius: 20px;
+}
+#EmojiButton:hover {
+    background-color: #3d566e;
+}
+#EmojiButton:pressed {
+    background-color: #2a3e4f;
 }

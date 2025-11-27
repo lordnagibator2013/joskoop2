@@ -8,6 +8,7 @@
 #include <QMap>
 #include <QDateTime>
 #include <QLabel>
+#include <QAbstractAnimation>
 
 class NetworkManager;
 
@@ -33,6 +34,7 @@ private slots:
     void chooseChatWallpaper();
     void onNetworkMessageReceived(const QString &sender, const QString &text, bool isOwnMessage); // 3 параметра
     void onNetworkError(const QString &error);
+    void showEmojiPicker();
 
 private:
     NetworkManager *networkManager;
@@ -57,6 +59,8 @@ private:
     void animateMessage(QWidget *target);
     QLabel *chatBackgroundLabel = nullptr;
     QString selectedWallpaperPath;
+    QList<QAbstractAnimation*> activeAnimations;
+    bool isEmojiOnly(const QString &text);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

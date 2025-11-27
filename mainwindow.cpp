@@ -3,7 +3,6 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QIcon>
 #include <QDateTime>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -11,7 +10,6 @@
 #include <QTimer>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
-#include <QSequentialAnimationGroup>
 #include <QEasingCurve>
 #include <QAbstractAnimation>
 #include <QFileDialog>
@@ -47,7 +45,8 @@ MainWindow::MainWindow(NetworkManager *netManager, QWidget *parent)
 
     QPushButton *createChatBtn = new QPushButton(topBar);
     createChatBtn->setObjectName("CreateChatButton");
-    createChatBtn->setText("+");
+    createChatBtn->setIcon(QIcon("://plus.png"));
+    createChatBtn->setIconSize(QSize(20, 20));
     createChatBtn->setFixedSize(40, 40);
 
     topLayout->addWidget(searchField);
@@ -110,6 +109,12 @@ MainWindow::MainWindow(NetworkManager *netManager, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // Очищаем активные анимации
+    for (QAbstractAnimation *anim : std::as_const(activeAnimations)) {
+        anim->stop();
+        anim->deleteLater();
+    }
+    activeAnimations.clear();
 }
 
 void MainWindow::onNetworkMessageReceived(const QString &sender, const QString &text, bool isOwnMessage)
@@ -118,8 +123,6 @@ void MainWindow::onNetworkMessageReceived(const QString &sender, const QString &
 
     // Если чат открыт, отображаем сообщение
     if (chatPage && stack->currentWidget() == chatPage) {
-        // Для сетевых сообщений isOwnMessage = true только если это наше сообщение
-        // Но в receiveMessage параметр isOutgoing = false для входящих, true для исходящих
         bool isOutgoing = isOwnMessage;
         receiveMessage(text, isOutgoing, sender);
     }
@@ -148,7 +151,6 @@ QWidget* MainWindow::createChatsPage() {
     QVBoxLayout *chatListLayout = new QVBoxLayout(chatListContainer);
     chatListLayout->setSpacing(10);
     chatListLayout->setContentsMargins(0, 0, 0, 0);
-    chatListContainer->setLayout(chatListLayout);
 
     layout->addWidget(chatListContainer);
     return page;
@@ -162,8 +164,7 @@ QWidget* MainWindow::createSettingsPage() {
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
-    // Кнопка смены обоев
-    QPushButton *wallpaperBtn = new QPushButton("Change Chat Wallpaper", page);
+    QPushButton *wallpaperBtn = new QPushButton("Сменить обои чата", page);
     wallpaperBtn->setObjectName("WallpaperButton");
     wallpaperBtn->setFixedHeight(40);
     layout->addWidget(wallpaperBtn);
@@ -193,8 +194,12 @@ void MainWindow::refreshChatList() {
     if (!chatListContainer) return;
 
     QLayout *layout = chatListContainer->layout();
+    if (!layout) return;
+
     while (QLayoutItem *child = layout->takeAt(0)) {
-        if (child->widget()) child->widget()->deleteLater();
+        if (child->widget()) {
+            child->widget()->deleteLater();
+        }
         delete child;
     }
 
@@ -206,7 +211,14 @@ void MainWindow::refreshChatList() {
     for (const QString &chatName : sortedChats) {
         QPushButton *chatBtn = new QPushButton(chatName, chatListContainer);
         chatBtn->setObjectName("ChatEntry");
-        chatBtn->setFixedHeight(40);
+        chatBtn->setFixedHeight(70); // Увеличиваем высоту с 40 до 70
+
+        // Устанавливаем иконку для Group Chat
+        if (chatName == "Group Chat") {
+            chatBtn->setIcon(QIcon("://group_chat_icon.png")); // Замените на ваш путь к иконке
+            chatBtn->setIconSize(QSize(100, 120));
+        }
+
         layout->addWidget(chatBtn);
 
         if (chatName == "Group Chat") {
@@ -255,23 +267,28 @@ void MainWindow::openMeChat() {
     chatTopBar->setFixedHeight(50);
 
     QHBoxLayout *topLayout = new QHBoxLayout(chatTopBar);
-    topLayout->setContentsMargins(10, 10, 10, 10);
+    topLayout->setContentsMargins(10, 5, 10, 5); // Уменьшаем верхний и нижний отступы
     topLayout->setSpacing(10);
 
     QPushButton *backBtn = new QPushButton(chatTopBar);
     backBtn->setObjectName("BackButton");
-    backBtn->setText("← Back");
-    backBtn->setFixedSize(80, 30);
+    backBtn->setIcon(QIcon("://back.png"));
+    backBtn->setIconSize(QSize(20, 20));
+    backBtn->setFixedSize(40, 40);
 
     QLabel *chatTitle = new QLabel("Group Chat", chatTopBar);
     chatTitle->setObjectName("ChatTitle");
     QFont titleFont = chatTitle->font();
     titleFont.setBold(true);
+    titleFont.setPointSize(14); // Увеличим шрифт для лучшего баланса
     chatTitle->setFont(titleFont);
 
     topLayout->addWidget(backBtn);
     topLayout->addWidget(chatTitle);
     topLayout->addStretch();
+
+    // Устанавливаем выравнивание по центру по вертикали для всех элементов
+    topLayout->setAlignment(Qt::AlignCenter);
 
     connect(backBtn, &QPushButton::clicked, this, &MainWindow::switchToChats);
 
@@ -279,26 +296,24 @@ void MainWindow::openMeChat() {
     QScrollArea *scrollArea = new QScrollArea(chatPage);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setObjectName("ChatScrollArea");
-    scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
+    scrollArea->setStyleSheet("QScrollArea#ChatScrollArea { background: transparent; border: none; }");
 
     QWidget *messageArea = new QWidget();
     messageArea->setObjectName("MessageArea");
-    messageArea->setStyleSheet("background: transparent;");
+    messageArea->setStyleSheet("QWidget#MessageArea { background: transparent; }");
 
     QVBoxLayout *scrollLayout = new QVBoxLayout(messageArea);
     scrollLayout->setContentsMargins(10, 10, 10, 10);
     scrollLayout->setSpacing(8);
+    scrollLayout->setAlignment(Qt::AlignTop);
 
     messageLayout = scrollLayout;
     scrollArea->setWidget(messageArea);
 
-    // Восстанавливаем историю сообщений
-    for (const ChatMessage &msg : chatHistory) {
-        QWidget *msgWrapper = createMessageBubble(msg.text, msg.isOutgoing, msg.sender);
-        messageLayout->addWidget(msgWrapper);
-    }
+    // УБРАНО: Восстановление истории сообщений
+    // Сообщения будут добавляться через receiveMessage при получении от сервера
 
     messageLayout->addStretch();
 
@@ -316,12 +331,22 @@ void MainWindow::openMeChat() {
     messageEdit->setObjectName("MessageInput");
     messageEdit->setMinimumHeight(35);
 
+    // Кнопка смайликов
+    QPushButton *emojiButton = new QPushButton(chatBottomBar);
+    emojiButton->setObjectName("EmojiButton");
+    emojiButton->setIcon(QIcon("://emoji_icon.png")); // Замените на ваш путь к иконке
+    emojiButton->setIconSize(QSize(24, 24));
+    emojiButton->setFixedSize(40, 40);
+    emojiButton->setToolTip("Insert emoji");
+
     QPushButton *sendBtn = new QPushButton(chatBottomBar);
     sendBtn->setObjectName("SendButton");
-    sendBtn->setText("Send");
-    sendBtn->setFixedSize(80, 35);
+    sendBtn->setIcon(QIcon("://send.png"));
+    sendBtn->setIconSize(QSize(20, 20));
+    sendBtn->setFixedSize(40, 40);
 
     bottomLayout->addWidget(messageEdit);
+     bottomLayout->addWidget(emojiButton);
     bottomLayout->addWidget(sendBtn);
 
     connect(sendBtn, &QPushButton::clicked, this, &MainWindow::sendMessage);
@@ -334,70 +359,146 @@ void MainWindow::openMeChat() {
     stack->addWidget(chatPage);
     stack->setCurrentWidget(chatPage);
 
-    // Прокрутка вниз
-    QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
-        scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
-    });
+    // Восстанавливаем сообщения через receiveMessage для каждого сообщения в истории
+    for (const ChatMessage &msg : chatHistory) {
+        receiveMessage(msg.text, msg.isOutgoing, msg.sender);
+    }
+
+    connect(emojiButton, &QPushButton::clicked, this, &MainWindow::showEmojiPicker);
 }
 
+// ✅ ИСПРАВЛЕНО: пузырьки сообщений теперь правильно отображаются
 QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, const QString &sender)
 {
     QWidget *alignWrapper = new QWidget();
-    alignWrapper->setAttribute(Qt::WA_StyledBackground, false);
+    alignWrapper->setAttribute(Qt::WA_TranslucentBackground);
+    alignWrapper->setObjectName("MessageWrapper");
+    alignWrapper->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     QHBoxLayout *alignLayout = new QHBoxLayout(alignWrapper);
     alignLayout->setContentsMargins(10, 4, 10, 4);
     alignLayout->setSpacing(0);
 
-    QWidget *bubbleWidget = new QWidget();
+    QFrame *bubbleWidget = new QFrame();
+    bubbleWidget->setFrameShape(QFrame::NoFrame);
+    bubbleWidget->setObjectName("MessageBubble");
+    bubbleWidget->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
 
-    if (isOutgoing) {
-        // Исходящие сообщения - синие
+    // Проверяем, является ли сообщение только эмодзи
+    bool emojiOnly = isEmojiOnly(text);
+
+    if (emojiOnly) {
+        // Стиль для сообщений только с эмодзи - прозрачный фон, большой шрифт
         bubbleWidget->setStyleSheet(
-            "background-color: #0084ff;"
-            "color: white;"
-            "border-radius: 18px;"
-            "padding: 8px 12px;"
-            "font-size: 14px;"
+            "QFrame#MessageBubble {"
+            "   background: transparent;"
+            "   border: none;"
+            "   padding: 0px;"
+            "   font-size: 32px;"  // Увеличиваем размер шрифта для эмодзи
+            "}"
             );
     } else {
-        // Входящие сообщения - серые
-        bubbleWidget->setStyleSheet(
-            "background-color: #f1f0f0;"
-            "color: black;"
-            "border-radius: 18px;"
-            "padding: 8px 12px;"
-            "font-size: 14px;"
-            );
+        // Обычный стиль для текстовых сообщений
+        if (isOutgoing) {
+            bubbleWidget->setStyleSheet(
+                "QFrame#MessageBubble {"
+                "   background-color: #0084ff;"
+                "   color: white;"
+                "   border-radius: 17px;"
+                "   padding: 8px 12px;"
+                "   font-size: 14px;"
+                "   border: none;"
+                "}"
+                );
+        } else {
+            bubbleWidget->setStyleSheet(
+                "QFrame#MessageBubble {"
+                "   background-color: #bbc9b7;"
+                "   color: black;"
+                "   border-radius: 17px;"
+                "   padding: 8px 12px;"
+                "   font-size: 14px;"
+                "   border: none;"
+                "}"
+                );
+        }
     }
-
-    bubbleWidget->setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout *bubbleLayout = new QVBoxLayout(bubbleWidget);
     bubbleLayout->setContentsMargins(0, 0, 0, 0);
     bubbleLayout->setSpacing(2);
 
-    // Показываем отправителя для входящих сообщений
-    if (!isOutgoing && !sender.isEmpty() && sender != networkManager->getUserName()) {
+    // Не показываем отправителя для сообщений только с эмодзи
+    if (!isOutgoing && !sender.isEmpty() && sender != networkManager->getUserName() && !emojiOnly) {
         QLabel *senderLabel = new QLabel(sender, bubbleWidget);
+        senderLabel->setObjectName("SenderLabel");
         senderLabel->setStyleSheet(
-            "color: #666;"
-            "font-size: 12px;"
-            "font-weight: bold;"
-            "padding: 0px;"
-            "margin: 0px;"
+            "QLabel#SenderLabel {"
+            "   color: #666;"
+            "   font-size: 12px;"
+            "   font-weight: bold;"
+            "   padding: 0px;"
+            "   margin: 0px;"
+            "   background: transparent;"
+            "}"
             );
+        senderLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         bubbleLayout->addWidget(senderLabel);
     }
 
     QLabel *msgLabel = new QLabel(text, bubbleWidget);
+    msgLabel->setObjectName("MessageText");
     msgLabel->setWordWrap(true);
     msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    msgLabel->setMaximumWidth(350);
-    msgLabel->setStyleSheet("background: transparent; border: none; margin: 0px; padding: 0px;");
+
+    if (emojiOnly) {
+        // Для эмодзи убираем ограничения по ширине и увеличиваем шрифт
+        msgLabel->setMaximumWidth(1000);
+        msgLabel->setStyleSheet(
+            "QLabel#MessageText { "
+            "   background: transparent; "
+            "   border: none; "
+            "   margin: 0; "
+            "   padding: 0; "
+            "   font-size: 32px;"
+            "}"
+            );
+        msgLabel->setAlignment(Qt::AlignCenter);
+    } else {
+        // Обычные настройки для текстовых сообщений
+        msgLabel->setMaximumWidth(350);
+        msgLabel->setStyleSheet(
+            "QLabel#MessageText { "
+            "   background: transparent; "
+            "   border: none; "
+            "   margin: 0; "
+            "   padding: 0; "
+            "   color: inherit;"
+            "}"
+            );
+    }
+
+    msgLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
     bubbleLayout->addWidget(msgLabel);
 
-    // Выравнивание
+    // Для эмодзи-сообщений не устанавливаем минимальную ширину
+    if (!emojiOnly) {
+        int textWidth = QFontMetrics(msgLabel->font()).horizontalAdvance(text);
+        int minWidth = qMin(qMax(textWidth, 50), 350);
+        msgLabel->setMinimumWidth(minWidth);
+    }
+
+    // Форсируем расчет размеров ДО отображения
+    bubbleWidget->adjustSize();
+    alignWrapper->adjustSize();
+
+    // Для эмодзи-сообщений не устанавливаем фиксированную высоту
+    if (!emojiOnly) {
+        int calculatedHeight = bubbleWidget->height();
+        alignWrapper->setFixedHeight(calculatedHeight + 8);
+    }
+
     if (isOutgoing) {
         alignLayout->addStretch();
         alignLayout->addWidget(bubbleWidget);
@@ -411,6 +512,33 @@ QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, c
     return alignWrapper;
 }
 
+/*void MainWindow::animateMessage(QWidget *target)
+{
+    if (!target || !target->parentWidget()) {
+        return;
+    }
+
+    // Простая анимация без сложных связей
+    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(target);
+    target->setGraphicsEffect(effect);
+    effect->setOpacity(0.0);
+
+    QPropertyAnimation *animation = new QPropertyAnimation(effect, "opacity");
+    animation->setDuration(250);
+    animation->setStartValue(0.0);
+    animation->setEndValue(1.0);
+    animation->setEasingCurve(QEasingCurve::OutCubic);
+
+    // Автоматическое удаление при завершении
+    animation->start(QPropertyAnimation::DeleteWhenStopped);
+
+    // Удаляем эффект после анимации
+    connect(animation, &QPropertyAnimation::finished, target, [target, effect]() {
+        target->setGraphicsEffect(nullptr);
+        effect->deleteLater();
+    });
+}*/
+
 void MainWindow::sendMessage()
 {
     if (!messageEdit || !messageLayout) return;
@@ -419,7 +547,6 @@ void MainWindow::sendMessage()
 
     qDebug() << "Sending message:" << text;
 
-    // Отправляем сообщение через сетевой менеджер
     if (networkManager && networkManager->isConnected()) {
         networkManager->sendMessage(text);
     } else {
@@ -427,29 +554,13 @@ void MainWindow::sendMessage()
         return;
     }
 
-    // Локальное отображение отправленного сообщения (исходящее)
-    QWidget *msgWrapper = createMessageBubble(text, true, networkManager->getUserName());
-    int count = messageLayout->count();
-    if (count > 0) {
-        messageLayout->insertWidget(count - 1, msgWrapper);
-    } else {
-        messageLayout->addWidget(msgWrapper);
-    }
-
-    animateMessage(msgWrapper);
+    // НЕ добавляем сообщение локально - ждем получения от сервера
+    // Это предотвратит дублирование
 
     chatHistory.append({text, true, networkManager->getUserName()});
     messageEdit->clear();
     chatActivity["Group Chat"] = QDateTime::currentDateTime();
     refreshChatList();
-
-    // Прокрутка к новому сообщению
-    QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
-    if (scrollArea) {
-        QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
-            scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
-        });
-    }
 }
 
 void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QString &sender)
@@ -458,7 +569,24 @@ void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QStr
 
     qDebug() << "Receiving message in UI - Text:" << text << "Outgoing:" << isOutgoing << "Sender:" << sender;
 
-    // Для входящих сообщений используем переданного отправителя
+    // Проверяем, нет ли уже такого сообщения в макете
+    bool messageAlreadyExists = false;
+    for (int i = 0; i < messageLayout->count() - 1; ++i) { // -1 чтобы исключить stretch
+        QLayoutItem *item = messageLayout->itemAt(i);
+        if (item && item->widget()) {
+            QLabel *msgLabel = item->widget()->findChild<QLabel*>("MessageText");
+            if (msgLabel && msgLabel->text() == text) {
+                messageAlreadyExists = true;
+                break;
+            }
+        }
+    }
+
+    if (messageAlreadyExists) {
+        qDebug() << "Message already exists in layout, skipping";
+        return;
+    }
+
     QString displaySender = sender;
     if (isOutgoing) {
         displaySender = networkManager->getUserName();
@@ -472,11 +600,19 @@ void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QStr
         messageLayout->addWidget(msgWrapper);
     }
 
-    animateMessage(msgWrapper);
+    // Добавляем в историю только если это новое сообщение
+    bool messageExistsInHistory = false;
+    for (const ChatMessage &msg : chatHistory) {
+        if (msg.text == text && msg.sender == displaySender && msg.isOutgoing == isOutgoing) {
+            messageExistsInHistory = true;
+            break;
+        }
+    }
 
-    chatHistory.append({text, isOutgoing, displaySender});
+    if (!messageExistsInHistory) {
+        chatHistory.append({text, isOutgoing, displaySender});
+    }
 
-    // Прокрутка к новому сообщению
     QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
     if (scrollArea) {
         QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
@@ -485,41 +621,40 @@ void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QStr
     }
 }
 
-void MainWindow::animateMessage(QWidget *target)
-{
-    auto *opacity = new QGraphicsOpacityEffect(target);
-    target->setGraphicsEffect(opacity);
-    opacity->setOpacity(0.0);
-
-    QPropertyAnimation *fadeIn = new QPropertyAnimation(opacity, "opacity");
-    fadeIn->setDuration(300);
-    fadeIn->setStartValue(0.0);
-    fadeIn->setEndValue(1.0);
-    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
-
-    // Удаляем эффект после завершения
-    connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
-        target->setGraphicsEffect(nullptr);
-    });
-
-    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
 void MainWindow::switchToChats()
 {
+    // ✅ Останавливаем все активные анимации перед удалением чата
+    for (QAbstractAnimation *anim : std::as_const(activeAnimations)) {
+        if (anim->state() == QAbstractAnimation::Running) {
+            anim->stop();
+        }
+    }
+    // Удаляем отложенно — безопасно
+    for (QAbstractAnimation *anim : std::as_const(activeAnimations)) {
+        anim->deleteLater();
+    }
+    activeAnimations.clear();
+
     stack->setCurrentIndex(0);
     refreshChatList();
 
     if (chatPage) {
+        chatPage->removeEventFilter(this);
+
         int idx = stack->indexOf(chatPage);
         if (idx != -1) {
             QWidget *toRemove = stack->widget(idx);
             stack->removeWidget(toRemove);
+            toRemove->setParent(nullptr);
             toRemove->deleteLater();
         }
         chatPage = nullptr;
         messageLayout = nullptr;
         messageEdit = nullptr;
+        chatBackgroundLabel = nullptr;
+
+        // Если хотите очищать историю при выходе из чата, раскомментируйте следующую строку:
+        // chatHistory.clear();
     }
 }
 
@@ -567,6 +702,102 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     }
 }
 
+void MainWindow::showEmojiPicker()
+{
+    if (!messageEdit) return;
+
+    // Создаем диалог для выбора смайликов
+    QDialog *emojiDialog = new QDialog(this);
+    emojiDialog->setWindowTitle("Select Emoji");
+    emojiDialog->setFixedSize(450, 350); // Еще больше увеличили размер окна
+    emojiDialog->setModal(true);
+    emojiDialog->setStyleSheet("QDialog { background-color: #2c3e50; border-radius: 10px; }");
+
+    QGridLayout *layout = new QGridLayout(emojiDialog);
+    layout->setSpacing(8); // Еще больше увеличили расстояние между кнопками
+    layout->setContentsMargins(15, 15, 15, 15); // Увеличили отступы от краев
+
+    // Список популярных смайликов
+    QStringList emojis = {
+        "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+        "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
+        "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+        "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏",
+        "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣",
+        "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠",
+        "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨",
+        "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥",
+        "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧",
+        "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐",
+        "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑",
+        "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻",
+        "💀", "☠️", "👽", "👾", "🤖", "🎃", "😺", "😸",
+        "😹", "😻", "😼", "😽", "🙀", "😿", "😾"
+    };
+
+    // Создаем кнопки для каждого смайлика
+    int row = 0, col = 0;
+    for (const QString &emoji : emojis) {
+        QPushButton *emojiBtn = new QPushButton(emoji, emojiDialog);
+        emojiBtn->setFixedSize(40, 40); // Еще больше увеличили размер кнопок
+        emojiBtn->setFont(QFont("Segoe UI Emoji", 16)); // Еще больше увеличили шрифт
+
+        // Убираем фон и границы у кнопок с эмодзи
+        emojiBtn->setStyleSheet(
+            "QPushButton {"
+            "   background: transparent;"
+            "   border: none;"
+            "   border-radius: 5px;"
+            "   padding: 0px;"
+            "   margin: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "   background: rgba(255,255,255,0.1);"
+            "}"
+            "QPushButton:pressed {"
+            "   background: rgba(255,255,255,0.2);"
+            "}"
+            );
+
+        connect(emojiBtn, &QPushButton::clicked, this, [this, emoji, emojiDialog]() {
+            if (messageEdit) {
+                messageEdit->insert(emoji);
+            }
+            emojiDialog->close();
+        });
+
+        layout->addWidget(emojiBtn, row, col);
+        col++;
+        if (col >= 9) { // Немного уменьшили количество столбцов до 9
+            col = 0;
+            row++;
+        }
+    }
+
+    // Добавляем кнопку закрытия
+    QPushButton *closeBtn = new QPushButton("Close", emojiDialog);
+    closeBtn->setFixedHeight(35);
+    closeBtn->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #34495e;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: 5px;"
+        "   padding: 8px 16px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #3d566e;"
+        "}"
+        );
+
+    connect(closeBtn, &QPushButton::clicked, emojiDialog, &QDialog::close);
+
+    layout->addWidget(closeBtn, row + 1, 0, 1, 9, Qt::AlignCenter); // Размещаем кнопку закрытия
+
+    emojiDialog->exec();
+    emojiDialog->deleteLater();
+}
+
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
     if (obj == chatPage && event->type() == QEvent::Resize) {
@@ -586,4 +817,25 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
     return QMainWindow::eventFilter(obj, event);
+}
+
+bool MainWindow::isEmojiOnly(const QString &text)
+{
+    if (text.isEmpty()) return false;
+
+    // Регулярное выражение для определения эмодзи
+    // Оно покрывает большинство эмодзи, включая составные
+    QRegularExpression emojiRegex(
+        "^[\\x{1F600}-\\x{1F64F}"      // Emoticons
+        "\\x{1F300}-\\x{1F5FF}"        // Misc Symbols and Pictographs
+        "\\x{1F680}-\\x{1F6FF}"        // Transport & Map
+        "\\x{1F1E0}-\\x{1F1FF}"        // Flags (iOS)
+        "\\x{2600}-\\x{26FF}"          // Misc symbols
+        "\\x{2700}-\\x{27BF}"          // Dingbats
+        "\\x{FE00}-\\x{FE0F}"          // Variation Selectors
+        "\\x{1F900}-\\x{1F9FF}"        // Supplemental Symbols and Pictographs
+        "\\x{1F018}-\\x{1F270}"        // Various symbols
+        "]*$"
+        );
+    return emojiRegex.match(text).hasMatch() && text.length() <= 4;
 }
