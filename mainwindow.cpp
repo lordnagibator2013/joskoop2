@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "networkmanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,10 +19,12 @@
 #include <QImage>
 #include <QPixmap>
 #include <QEvent>
+#include <QDebug>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent) {
-    setWindowTitle("Messenger");
+MainWindow::MainWindow(NetworkManager *netManager, QWidget *parent)
+    : QMainWindow(parent), networkManager(netManager)
+{
+    setWindowTitle("Messenger - " + networkManager->getUserName());
     resize(800, 600);
 
     QWidget *central = new QWidget(this);
@@ -44,8 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     QPushButton *createChatBtn = new QPushButton(topBar);
     createChatBtn->setObjectName("CreateChatButton");
-    createChatBtn->setIcon(QIcon("://plus.png"));
-    createChatBtn->setIconSize(QSize(20, 20));
+    createChatBtn->setText("+");
     createChatBtn->setFixedSize(40, 40);
 
     topLayout->addWidget(searchField);
@@ -67,7 +69,6 @@ MainWindow::MainWindow(QWidget *parent)
     navLayout->setSpacing(30);
     navLayout->setAlignment(Qt::AlignCenter);
 
-    // Создаём кнопки с уникальными objectName
     chatsButton = new QPushButton("Chats", bottomBar);
     chatsButton->setObjectName("NavChats");
     chatsButton->setFixedSize(100, 30);
@@ -80,26 +81,57 @@ MainWindow::MainWindow(QWidget *parent)
     profileButton->setObjectName("NavProfile");
     profileButton->setFixedSize(100, 30);
 
-    // Добавляем кнопки в нижнюю панель
     navLayout->addWidget(chatsButton);
     navLayout->addWidget(settingsButton);
     navLayout->addWidget(profileButton);
 
-    // Подключаем сигналы
     connect(chatsButton,   &QPushButton::clicked, this, &MainWindow::switchToChats);
     connect(settingsButton,&QPushButton::clicked, this, &MainWindow::switchToSettings);
     connect(profileButton, &QPushButton::clicked, this, &MainWindow::switchToProfile);
 
-    // Сборка
+    // Подключаем сетевые сигналы
+    if (networkManager) {
+        connect(networkManager, &NetworkManager::messageReceived,
+                this, &MainWindow::onNetworkMessageReceived);
+        connect(networkManager, &NetworkManager::errorOccurred,
+                this, &MainWindow::onNetworkError);
+    }
+
     mainLayout->addWidget(topBar);
     mainLayout->addWidget(stack);
     mainLayout->addWidget(bottomBar);
     setCentralWidget(central);
 
     // Инициализация активности и списка чатов
-    chatActivity["Me"] = QDateTime::currentDateTime();
+    chatActivity["Group Chat"] = QDateTime::currentDateTime();
     refreshChatList();
     stack->setCurrentIndex(0);
+}
+
+MainWindow::~MainWindow()
+{
+}
+
+void MainWindow::onNetworkMessageReceived(const QString &sender, const QString &text, bool isOwnMessage)
+{
+    qDebug() << "Displaying message - Sender:" << sender << "Text:" << text << "IsOwn:" << isOwnMessage;
+
+    // Если чат открыт, отображаем сообщение
+    if (chatPage && stack->currentWidget() == chatPage) {
+        // Для сетевых сообщений isOwnMessage = true только если это наше сообщение
+        // Но в receiveMessage параметр isOutgoing = false для входящих, true для исходящих
+        bool isOutgoing = isOwnMessage;
+        receiveMessage(text, isOutgoing, sender);
+    }
+
+    // Обновляем активность чата
+    chatActivity["Group Chat"] = QDateTime::currentDateTime();
+    refreshChatList();
+}
+
+void MainWindow::onNetworkError(const QString &error)
+{
+    QMessageBox::warning(this, "Ошибка сети", error);
 }
 
 QWidget* MainWindow::createChatsPage() {
@@ -125,14 +157,33 @@ QWidget* MainWindow::createChatsPage() {
 QWidget* MainWindow::createSettingsPage() {
     QWidget *page = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->addWidget(new QLabel("Settings", page));
+
+    QLabel *title = new QLabel("Settings", page);
+    title->setAlignment(Qt::AlignCenter);
+    layout->addWidget(title);
+
+    // Кнопка смены обоев
+    QPushButton *wallpaperBtn = new QPushButton("Change Chat Wallpaper", page);
+    wallpaperBtn->setObjectName("WallpaperButton");
+    wallpaperBtn->setFixedHeight(40);
+    layout->addWidget(wallpaperBtn);
+
+    connect(wallpaperBtn, &QPushButton::clicked, this, &MainWindow::chooseChatWallpaper);
+
+    layout->addStretch();
     return page;
 }
 
 QWidget* MainWindow::createProfilePage() {
     QWidget *page = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->addWidget(new QLabel("Profile", page));
+
+    QString userName = networkManager ? networkManager->getUserName() : "Unknown";
+    QLabel *title = new QLabel("Profile: " + userName, page);
+    title->setAlignment(Qt::AlignCenter);
+    layout->addWidget(title);
+
+    layout->addStretch();
     return page;
 }
 
@@ -158,7 +209,7 @@ void MainWindow::refreshChatList() {
         chatBtn->setFixedHeight(40);
         layout->addWidget(chatBtn);
 
-        if (chatName == "Me") {
+        if (chatName == "Group Chat") {
             connect(chatBtn, &QPushButton::clicked, this, &MainWindow::openMeChat);
         }
     }
@@ -171,16 +222,16 @@ void MainWindow::refreshChatList() {
 void MainWindow::openMeChat() {
     chatPage = new QWidget(this);
     chatPage->setObjectName("ChatPage");
-    chatPage->installEventFilter(this); // для отслеживания изменения размера
+    chatPage->installEventFilter(this);
     chatPage->setAttribute(Qt::WA_StyledBackground, true);
 
-    // Фоновое изображение (только если выбран путь)
+    // Фоновое изображение
     if (!selectedWallpaperPath.isEmpty()) {
         chatBackgroundLabel = new QLabel(chatPage);
         chatBackgroundLabel->setObjectName("ChatBackground");
         chatBackgroundLabel->setScaledContents(true);
         chatBackgroundLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-        chatBackgroundLabel->lower(); // на задний план
+        chatBackgroundLabel->lower();
         chatBackgroundLabel->resize(chatPage->size());
         chatBackgroundLabel->move(0, 0);
 
@@ -209,12 +260,14 @@ void MainWindow::openMeChat() {
 
     QPushButton *backBtn = new QPushButton(chatTopBar);
     backBtn->setObjectName("BackButton");
-    backBtn->setIcon(QIcon("://back.png"));
-    backBtn->setIconSize(QSize(20, 20));
-    backBtn->setFixedSize(40, 40);
+    backBtn->setText("← Back");
+    backBtn->setFixedSize(80, 30);
 
-    QLabel *chatTitle = new QLabel("Me", chatTopBar);
+    QLabel *chatTitle = new QLabel("Group Chat", chatTopBar);
     chatTitle->setObjectName("ChatTitle");
+    QFont titleFont = chatTitle->font();
+    titleFont.setBold(true);
+    chatTitle->setFont(titleFont);
 
     topLayout->addWidget(backBtn);
     topLayout->addWidget(chatTitle);
@@ -226,22 +279,24 @@ void MainWindow::openMeChat() {
     QScrollArea *scrollArea = new QScrollArea(chatPage);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setObjectName("ChatScrollArea");
-    scrollArea->setStyleSheet("background: transparent; border: none;");
+    scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
 
     QWidget *messageArea = new QWidget();
     messageArea->setObjectName("MessageArea");
+    messageArea->setStyleSheet("background: transparent;");
 
     QVBoxLayout *scrollLayout = new QVBoxLayout(messageArea);
     scrollLayout->setContentsMargins(10, 10, 10, 10);
-    scrollLayout->setSpacing(10);
+    scrollLayout->setSpacing(8);
 
     messageLayout = scrollLayout;
     scrollArea->setWidget(messageArea);
 
+    // Восстанавливаем историю сообщений
     for (const ChatMessage &msg : chatHistory) {
-        QWidget *msgWrapper = createMessageBubble(msg.text, msg.isOutgoing);
+        QWidget *msgWrapper = createMessageBubble(msg.text, msg.isOutgoing, msg.sender);
         messageLayout->addWidget(msgWrapper);
     }
 
@@ -250,7 +305,7 @@ void MainWindow::openMeChat() {
     // Нижняя панель
     QWidget *chatBottomBar = new QWidget(chatPage);
     chatBottomBar->setObjectName("ChatBottomBar");
-    chatBottomBar->setFixedHeight(60);
+    chatBottomBar->setFixedHeight(70);
 
     QHBoxLayout *bottomLayout = new QHBoxLayout(chatBottomBar);
     bottomLayout->setContentsMargins(10, 10, 10, 10);
@@ -259,19 +314,19 @@ void MainWindow::openMeChat() {
     messageEdit = new QLineEdit(chatBottomBar);
     messageEdit->setPlaceholderText("Type a message...");
     messageEdit->setObjectName("MessageInput");
+    messageEdit->setMinimumHeight(35);
 
     QPushButton *sendBtn = new QPushButton(chatBottomBar);
     sendBtn->setObjectName("SendButton");
-    sendBtn->setIcon(QIcon("://send.png"));
-    sendBtn->setIconSize(QSize(20, 20));
-    sendBtn->setFixedSize(40, 40);
+    sendBtn->setText("Send");
+    sendBtn->setFixedSize(80, 35);
 
     bottomLayout->addWidget(messageEdit);
     bottomLayout->addWidget(sendBtn);
 
     connect(sendBtn, &QPushButton::clicked, this, &MainWindow::sendMessage);
+    connect(messageEdit, &QLineEdit::returnPressed, this, &MainWindow::sendMessage);
 
-    // Сборка
     mainLayout->addWidget(chatTopBar);
     mainLayout->addWidget(scrollArea);
     mainLayout->addWidget(chatBottomBar);
@@ -280,74 +335,100 @@ void MainWindow::openMeChat() {
     stack->setCurrentWidget(chatPage);
 
     // Прокрутка вниз
-    QTimer::singleShot(0, scrollArea->verticalScrollBar(), [scrollArea]() {
+    QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
         scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
     });
-
-    // Первое сообщение
-    if (!hasReceivedInitialMessage) {
-        receiveMessage("Пошла нахуй мама ебаная");
-        hasReceivedInitialMessage = true;
-    }
 }
 
-QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing) {
-    // Контейнер для выравнивания (без фона)
+QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, const QString &sender)
+{
     QWidget *alignWrapper = new QWidget();
     alignWrapper->setAttribute(Qt::WA_StyledBackground, false);
 
-
     QHBoxLayout *alignLayout = new QHBoxLayout(alignWrapper);
-    alignLayout->setContentsMargins(10, 6, 10, 6);
+    alignLayout->setContentsMargins(10, 4, 10, 4);
     alignLayout->setSpacing(0);
 
-    // Сам пузырёк (фон и рамка рисуются через QSS)
-    QWidget *msgWrapper = new QWidget();
-    msgWrapper->setObjectName(isOutgoing ? "MessageBubble" : "IncomingBubble");
-    if (isOutgoing){
-        msgWrapper->setStyleSheet("background-color: #448aff;");
-    }
-    else{
-        msgWrapper->setStyleSheet("background-color: #dfe6e9;");
+    QWidget *bubbleWidget = new QWidget();
+
+    if (isOutgoing) {
+        // Исходящие сообщения - синие
+        bubbleWidget->setStyleSheet(
+            "background-color: #0084ff;"
+            "color: white;"
+            "border-radius: 18px;"
+            "padding: 8px 12px;"
+            "font-size: 14px;"
+            );
+    } else {
+        // Входящие сообщения - серые
+        bubbleWidget->setStyleSheet(
+            "background-color: #f1f0f0;"
+            "color: black;"
+            "border-radius: 18px;"
+            "padding: 8px 12px;"
+            "font-size: 14px;"
+            );
     }
 
-    msgWrapper->setAttribute(Qt::WA_StyledBackground, true); // критично!
+    bubbleWidget->setAttribute(Qt::WA_StyledBackground, true);
 
-    // Внутренний текст
-    QLabel *msgLabel = new QLabel(text, msgWrapper);
+    QVBoxLayout *bubbleLayout = new QVBoxLayout(bubbleWidget);
+    bubbleLayout->setContentsMargins(0, 0, 0, 0);
+    bubbleLayout->setSpacing(2);
+
+    // Показываем отправителя для входящих сообщений
+    if (!isOutgoing && !sender.isEmpty() && sender != networkManager->getUserName()) {
+        QLabel *senderLabel = new QLabel(sender, bubbleWidget);
+        senderLabel->setStyleSheet(
+            "color: #666;"
+            "font-size: 12px;"
+            "font-weight: bold;"
+            "padding: 0px;"
+            "margin: 0px;"
+            );
+        bubbleLayout->addWidget(senderLabel);
+    }
+
+    QLabel *msgLabel = new QLabel(text, bubbleWidget);
     msgLabel->setWordWrap(true);
     msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    msgLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-
-    // Ограничение ширины
-    QFontMetrics fm(msgLabel->font());
-    int maxWidth = 400;
-    msgLabel->setMaximumWidth(maxWidth);
-
-    // Внутренний layout пузырька (имитируем padding из QSS для корректной вёрстки)
-    QVBoxLayout *bubbleLayout = new QVBoxLayout(msgWrapper);
-    bubbleLayout->setContentsMargins(14, 8, 14, 8); // соответствует padding в QSS
-    bubbleLayout->setSpacing(0);
+    msgLabel->setMaximumWidth(350);
+    msgLabel->setStyleSheet("background: transparent; border: none; margin: 0px; padding: 0px;");
     bubbleLayout->addWidget(msgLabel);
 
     // Выравнивание
     if (isOutgoing) {
         alignLayout->addStretch();
-        alignLayout->addWidget(msgWrapper);
+        alignLayout->addWidget(bubbleWidget);
+        alignLayout->setAlignment(bubbleWidget, Qt::AlignRight);
     } else {
-        alignLayout->addWidget(msgWrapper);
+        alignLayout->addWidget(bubbleWidget);
         alignLayout->addStretch();
+        alignLayout->setAlignment(bubbleWidget, Qt::AlignLeft);
     }
 
     return alignWrapper;
 }
 
-void MainWindow::sendMessage() {
+void MainWindow::sendMessage()
+{
     if (!messageEdit || !messageLayout) return;
     const QString text = messageEdit->text().trimmed();
     if (text.isEmpty()) return;
 
-    QWidget *msgWrapper = createMessageBubble(text, true);
+    qDebug() << "Sending message:" << text;
+
+    // Отправляем сообщение через сетевой менеджер
+    if (networkManager && networkManager->isConnected()) {
+        networkManager->sendMessage(text);
+    } else {
+        QMessageBox::warning(this, "Ошибка", "Нет подключения к серверу");
+        return;
+    }
+
+    // Локальное отображение отправленного сообщения (исходящее)
+    QWidget *msgWrapper = createMessageBubble(text, true, networkManager->getUserName());
     int count = messageLayout->count();
     if (count > 0) {
         messageLayout->insertWidget(count - 1, msgWrapper);
@@ -357,16 +438,33 @@ void MainWindow::sendMessage() {
 
     animateMessage(msgWrapper);
 
-    chatHistory.append({text, true});
+    chatHistory.append({text, true, networkManager->getUserName()});
     messageEdit->clear();
-    chatActivity["Me"] = QDateTime::currentDateTime();
+    chatActivity["Group Chat"] = QDateTime::currentDateTime();
     refreshChatList();
+
+    // Прокрутка к новому сообщению
+    QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
+    if (scrollArea) {
+        QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
+            scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
+        });
+    }
 }
 
-void MainWindow::receiveMessage(const QString &text) {
+void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QString &sender)
+{
     if (!messageLayout) return;
 
-    QWidget *msgWrapper = createMessageBubble(text, false);
+    qDebug() << "Receiving message in UI - Text:" << text << "Outgoing:" << isOutgoing << "Sender:" << sender;
+
+    // Для входящих сообщений используем переданного отправителя
+    QString displaySender = sender;
+    if (isOutgoing) {
+        displaySender = networkManager->getUserName();
+    }
+
+    QWidget *msgWrapper = createMessageBubble(text, isOutgoing, displaySender);
     int count = messageLayout->count();
     if (count > 0) {
         messageLayout->insertWidget(count - 1, msgWrapper);
@@ -376,36 +474,28 @@ void MainWindow::receiveMessage(const QString &text) {
 
     animateMessage(msgWrapper);
 
-    chatHistory.append({text, false});
+    chatHistory.append({text, isOutgoing, displaySender});
+
+    // Прокрутка к новому сообщению
+    QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
+    if (scrollArea) {
+        QTimer::singleShot(100, scrollArea->verticalScrollBar(), [scrollArea]() {
+            scrollArea->verticalScrollBar()->setValue(scrollArea->verticalScrollBar()->maximum());
+        });
+    }
 }
 
-void MainWindow::animateMessage(QWidget *target) {
+void MainWindow::animateMessage(QWidget *target)
+{
     auto *opacity = new QGraphicsOpacityEffect(target);
     target->setGraphicsEffect(opacity);
     opacity->setOpacity(0.0);
 
-    // Анимация прозрачности
     QPropertyAnimation *fadeIn = new QPropertyAnimation(opacity, "opacity");
     fadeIn->setDuration(300);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(1.0);
     fadeIn->setEasingCurve(QEasingCurve::OutCubic);
-
-    // Анимация прокрутки
-    QScrollArea *scrollArea = chatPage->findChild<QScrollArea*>("ChatScrollArea");
-    if (scrollArea) {
-        QScrollBar *vScroll = scrollArea->verticalScrollBar();
-        int start = vScroll->value();
-        int end = vScroll->maximum();
-
-        QPropertyAnimation *scrollAnim = new QPropertyAnimation(vScroll, "value");
-        scrollAnim->setDuration(300);
-        scrollAnim->setStartValue(start);
-        scrollAnim->setEndValue(end);
-        scrollAnim->setEasingCurve(QEasingCurve::OutCubic);
-
-        scrollAnim->start(QAbstractAnimation::DeleteWhenStopped);
-    }
 
     // Удаляем эффект после завершения
     connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
@@ -415,12 +505,11 @@ void MainWindow::animateMessage(QWidget *target) {
     fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void MainWindow::switchToChats() {
-    // Вернуться на страницу чатов
+void MainWindow::switchToChats()
+{
     stack->setCurrentIndex(0);
     refreshChatList();
 
-    // Очистить динамическую страницу чата
     if (chatPage) {
         int idx = stack->indexOf(chatPage);
         if (idx != -1) {
@@ -434,27 +523,18 @@ void MainWindow::switchToChats() {
     }
 }
 
-void MainWindow::switchToSettings() {
+void MainWindow::switchToSettings()
+{
     stack->setCurrentIndex(1);
-    QWidget *settingsPage = stack->widget(1);
-    if (!settingsPage->findChild<QPushButton*>("WallpaperButton")) {
-        QPushButton *wallpaperBtn = new QPushButton("Сменить обои", settingsPage);
-        wallpaperBtn->setObjectName("WallpaperButton");
-        wallpaperBtn->setFixedHeight(40);
-
-        QVBoxLayout *layout = qobject_cast<QVBoxLayout*>(settingsPage->layout());
-        if (!layout) {
-            layout = new QVBoxLayout(settingsPage);
-            settingsPage->setLayout(layout);
-        }
-
-        layout->addWidget(wallpaperBtn);
-
-        connect(wallpaperBtn, &QPushButton::clicked, this, &MainWindow::chooseChatWallpaper);
-    }
 }
 
-void MainWindow::chooseChatWallpaper() {
+void MainWindow::switchToProfile()
+{
+    stack->setCurrentIndex(2);
+}
+
+void MainWindow::chooseChatWallpaper()
+{
     QString filePath = QFileDialog::getOpenFileName(
         this, "Выберите обои для чата", "",
         "Изображения (*.png *.jpg *.jpeg *.bmp)"
@@ -469,7 +549,6 @@ void MainWindow::chooseChatWallpaper() {
 
     selectedWallpaperPath = filePath;
 
-    // Если чат уже открыт — применим сразу
     if (chatPage && chatBackgroundLabel) {
         QPixmap pm = QPixmap::fromImage(img);
         QPixmap scaled = pm.scaled(chatPage->size(),
@@ -479,7 +558,8 @@ void MainWindow::chooseChatWallpaper() {
     }
 }
 
-void MainWindow::resizeEvent(QResizeEvent *event) {
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
     QMainWindow::resizeEvent(event);
 
     if (chatBackgroundLabel && chatPage) {
@@ -487,7 +567,8 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
     }
 }
 
-bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
     if (obj == chatPage && event->type() == QEvent::Resize) {
         if (chatBackgroundLabel) {
             chatBackgroundLabel->resize(chatPage->size());
@@ -505,8 +586,4 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
         }
     }
     return QMainWindow::eventFilter(obj, event);
-}
-
-void MainWindow::switchToProfile() {
-    stack->setCurrentIndex(2);
 }

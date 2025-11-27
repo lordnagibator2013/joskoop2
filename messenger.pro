@@ -1,4 +1,4 @@
-QT       += core gui
+QT += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,13 +13,15 @@ SOURCES += \
     loginform.cpp \
     loginwindow.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    networkmanager.cpp
 
 HEADERS += \
     loadingdialog.h \
     loginform.h \
     loginwindow.h \
-    mainwindow.h
+    mainwindow.h \
+    networkmanager.h
 
 FORMS += \
     mainwindow.ui
