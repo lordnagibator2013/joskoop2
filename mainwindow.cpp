@@ -211,11 +211,10 @@ void MainWindow::refreshChatList() {
     for (const QString &chatName : sortedChats) {
         QPushButton *chatBtn = new QPushButton(chatName, chatListContainer);
         chatBtn->setObjectName("ChatEntry");
-        chatBtn->setFixedHeight(70); // Увеличиваем высоту с 40 до 70
+        chatBtn->setFixedHeight(70);
 
-        // Устанавливаем иконку для Group Chat
         if (chatName == "Group Chat") {
-            chatBtn->setIcon(QIcon("://group_chat_icon.png")); // Замените на ваш путь к иконке
+            chatBtn->setIcon(QIcon("://group_chat_icon.png"));
             chatBtn->setIconSize(QSize(100, 120));
         }
 
@@ -267,7 +266,7 @@ void MainWindow::openMeChat() {
     chatTopBar->setFixedHeight(50);
 
     QHBoxLayout *topLayout = new QHBoxLayout(chatTopBar);
-    topLayout->setContentsMargins(10, 5, 10, 5); // Уменьшаем верхний и нижний отступы
+    topLayout->setContentsMargins(10, 5, 10, 5);
     topLayout->setSpacing(10);
 
     QPushButton *backBtn = new QPushButton(chatTopBar);
@@ -280,7 +279,7 @@ void MainWindow::openMeChat() {
     chatTitle->setObjectName("ChatTitle");
     QFont titleFont = chatTitle->font();
     titleFont.setBold(true);
-    titleFont.setPointSize(14); // Увеличим шрифт для лучшего баланса
+    titleFont.setPointSize(14);
     chatTitle->setFont(titleFont);
 
     topLayout->addWidget(backBtn);
@@ -311,9 +310,6 @@ void MainWindow::openMeChat() {
 
     messageLayout = scrollLayout;
     scrollArea->setWidget(messageArea);
-
-    // УБРАНО: Восстановление истории сообщений
-    // Сообщения будут добавляться через receiveMessage при получении от сервера
 
     messageLayout->addStretch();
 
@@ -346,7 +342,7 @@ void MainWindow::openMeChat() {
     sendBtn->setFixedSize(40, 40);
 
     bottomLayout->addWidget(messageEdit);
-     bottomLayout->addWidget(emojiButton);
+    bottomLayout->addWidget(emojiButton);
     bottomLayout->addWidget(sendBtn);
 
     connect(sendBtn, &QPushButton::clicked, this, &MainWindow::sendMessage);
@@ -367,7 +363,6 @@ void MainWindow::openMeChat() {
     connect(emojiButton, &QPushButton::clicked, this, &MainWindow::showEmojiPicker);
 }
 
-// ✅ ИСПРАВЛЕНО: пузырьки сообщений теперь правильно отображаются
 QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, const QString &sender)
 {
     QWidget *alignWrapper = new QWidget();
@@ -394,7 +389,7 @@ QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, c
             "   background: transparent;"
             "   border: none;"
             "   padding: 0px;"
-            "   font-size: 32px;"  // Увеличиваем размер шрифта для эмодзи
+            "   font-size: 48px;"
             "}"
             );
     } else {
@@ -406,7 +401,7 @@ QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, c
                 "   color: white;"
                 "   border-radius: 17px;"
                 "   padding: 8px 12px;"
-                "   font-size: 14px;"
+                "   font-size: 24px;"
                 "   border: none;"
                 "}"
                 );
@@ -417,7 +412,7 @@ QWidget* MainWindow::createMessageBubble(const QString &text, bool isOutgoing, c
                 "   color: black;"
                 "   border-radius: 17px;"
                 "   padding: 8px 12px;"
-                "   font-size: 14px;"
+                "   font-size: 24px;"
                 "   border: none;"
                 "}"
                 );
@@ -554,9 +549,6 @@ void MainWindow::sendMessage()
         return;
     }
 
-    // НЕ добавляем сообщение локально - ждем получения от сервера
-    // Это предотвратит дублирование
-
     chatHistory.append({text, true, networkManager->getUserName()});
     messageEdit->clear();
     chatActivity["Group Chat"] = QDateTime::currentDateTime();
@@ -623,7 +615,6 @@ void MainWindow::receiveMessage(const QString &text, bool isOutgoing, const QStr
 
 void MainWindow::switchToChats()
 {
-    // ✅ Останавливаем все активные анимации перед удалением чата
     for (QAbstractAnimation *anim : std::as_const(activeAnimations)) {
         if (anim->state() == QAbstractAnimation::Running) {
             anim->stop();
@@ -652,9 +643,6 @@ void MainWindow::switchToChats()
         messageLayout = nullptr;
         messageEdit = nullptr;
         chatBackgroundLabel = nullptr;
-
-        // Если хотите очищать историю при выходе из чата, раскомментируйте следующую строку:
-        // chatHistory.clear();
     }
 }
 
@@ -709,15 +697,15 @@ void MainWindow::showEmojiPicker()
     // Создаем диалог для выбора смайликов
     QDialog *emojiDialog = new QDialog(this);
     emojiDialog->setWindowTitle("Select Emoji");
-    emojiDialog->setFixedSize(450, 350); // Еще больше увеличили размер окна
+    emojiDialog->setFixedSize(450, 350);
     emojiDialog->setModal(true);
     emojiDialog->setStyleSheet("QDialog { background-color: #2c3e50; border-radius: 10px; }");
 
     QGridLayout *layout = new QGridLayout(emojiDialog);
-    layout->setSpacing(8); // Еще больше увеличили расстояние между кнопками
-    layout->setContentsMargins(15, 15, 15, 15); // Увеличили отступы от краев
+    layout->setSpacing(8);
+    layout->setContentsMargins(15, 15, 15, 15);
 
-    // Список популярных смайликов
+    // Список смайликов
     QStringList emojis = {
         "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
         "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
@@ -739,10 +727,9 @@ void MainWindow::showEmojiPicker()
     int row = 0, col = 0;
     for (const QString &emoji : emojis) {
         QPushButton *emojiBtn = new QPushButton(emoji, emojiDialog);
-        emojiBtn->setFixedSize(40, 40); // Еще больше увеличили размер кнопок
-        emojiBtn->setFont(QFont("Segoe UI Emoji", 16)); // Еще больше увеличили шрифт
+        emojiBtn->setFixedSize(40, 40);
+        emojiBtn->setFont(QFont("Segoe UI Emoji", 16));
 
-        // Убираем фон и границы у кнопок с эмодзи
         emojiBtn->setStyleSheet(
             "QPushButton {"
             "   background: transparent;"
@@ -768,7 +755,7 @@ void MainWindow::showEmojiPicker()
 
         layout->addWidget(emojiBtn, row, col);
         col++;
-        if (col >= 9) { // Немного уменьшили количество столбцов до 9
+        if (col >= 9) {
             col = 0;
             row++;
         }
